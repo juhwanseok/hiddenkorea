@@ -1,0 +1,22 @@
+# secrets
+.env
+*.key
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node (W4~)
+node_modules/
+.next/
+
+# data — 원천 데이터 커밋 금지 (DATA_GUIDELINES)
+data/raw/
+*.parquet
+*.db
+
+# misc
+.DS_Store
+Thumbs.db
