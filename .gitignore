@@ -12,10 +12,11 @@ venv/
 node_modules/
 .next/
 
-# data — 원천 데이터 커밋 금지 (DATA_GUIDELINES)
+# data — 원천 데이터 커밋 금지 (DATA_GUIDELINES). 단, d2_spots/region_map 등 소용량 참조표는 허용
 data/raw/
 *.parquet
 *.db
+*.log
 
 # misc
 .DS_Store
