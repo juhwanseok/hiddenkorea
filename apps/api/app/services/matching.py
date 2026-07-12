@@ -15,7 +15,9 @@ from pathlib import Path
 
 import numpy as np
 
-from ..core.constants import ALT_EXCLUDE_INDEX
+from ..core.constants import (
+    ALT_EXCLUDE_INDEX, ALT_MIN_DIST_KM, ALT_NAME_BLOCK, ALT_SAME_SUBCAT_BONUS,
+)
 from ..core.db import connect
 
 EMB = Path(__file__).resolve().parents[4] / "data" / "embeddings.npz"
@@ -37,7 +39,7 @@ class Index:
         con = connect()
         rows = {r["contentid"]: r for r in con.execute(
             f"SELECT contentid, title, mapx, mapy, ldongRegnCd, ldongSignguCd, firstimage, addr1, "
-            f"lclsSystm1, lclsSystm2 FROM places WHERE contentid IN ({','.join('?'*len(self.ids))})",
+            f"lclsSystm1, lclsSystm2, lclsSystm3 FROM places WHERE contentid IN ({','.join('?'*len(self.ids))})",
             self.ids)}
         con.close()
 
@@ -52,6 +54,7 @@ class Index:
         self.addr = [g(c, "addr1") for c in self.ids]
         self.lcls1 = np.array([g(c, "lclsSystm1") for c in self.ids])
         self.lcls2 = np.array([g(c, "lclsSystm2") for c in self.ids])
+        self.lcls3 = np.array([g(c, "lclsSystm3") for c in self.ids])
         self.img = np.array([1.0 if g(c, "firstimage") else 0.0 for c in self.ids])
 
 
@@ -108,19 +111,29 @@ def alternatives(content_id: str, date_iso: str, k: int = 3, weights: dict | Non
     cong = _cong_on_date(con, date_ymd)
     con.close()
 
+    origin_title = idx.title[i]
     out = []
     for pos_c, j in enumerate(cand):
         if j == i:
+            continue
+        d = float(dist[pos_c])
+        if d < ALT_MIN_DIST_KM:                           # 노이즈: 같은 명소 하위 구성물(예: 건청궁)
+            continue
+        name = idx.title[j]
+        if any(b in name for b in ALT_NAME_BLOCK):        # 노이즈: 학교·동상 등 비관광
+            continue
+        if origin_title and origin_title in name:         # 노이즈: 원본의 부속(예: 창경궁→창경궁 명정전)
             continue
         cid = idx.ids[j]
         c_idx = cong.get(cid, 45.0)                       # 링크 없으면 중립 근사
         if c_idx >= ALT_EXCLUDE_INDEX:                    # 자기조절: 붐비는 대안 제외
             continue
-        d = float(dist[pos_c])
         sim = float(sims[pos_c])
         dist_decay = DIST_HALF_KM / (DIST_HALF_KM + d)
         score = (w["sim"] * sim + w["cong"] * (1 - c_idx / 100)
                  + w["dist"] * dist_decay + w["qual"] * float(idx.img[j]))
+        if idx.lcls3[j] and idx.lcls3[j] == idx.lcls3[i]:  # 동일 소분류 미세 가산
+            score += ALT_SAME_SUBCAT_BONUS
         out.append({
             "contentId": cid, "name": idx.title[j], "addr": idx.addr[j],
             "hiddenScore": round(score, 4), "simPct": round(sim * 100, 1),

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api, type PlaceHit, type Congestion, type Alternatives, type Course } from "@/lib/api";
+import KakaoMap from "@/components/KakaoMap";
 
 const TODAY = new Date();
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -136,6 +137,7 @@ export default function Home() {
         <section className="mt-6 rounded-xl border border-slate-200 p-4">
           <h3 className="font-semibold">추천 코스 · 총 {course.totalDistanceKm}km</h3>
           <p className="mt-1 text-sm text-slate-600">{course.narrative}</p>
+          <KakaoMap stops={course.legs.map((l) => ({ seq: l.seq, name: l.name, lat: l.lat, lon: l.lon }))} />
           <ol className="mt-3 space-y-2">
             {course.legs.map((l) => (
               <li key={l.seq} className="flex items-center gap-3">

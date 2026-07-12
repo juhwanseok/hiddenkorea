@@ -17,6 +17,11 @@ SRC_MODEL = "HK_MODEL"          # 자체 ML 근사 (커버리지 갭)
 # 대안 추천 제외 임계 (RED_TEAM A5: 자기조절 — 붐비는 곳은 대안에서 제외)
 ALT_EXCLUDE_INDEX = 70
 
+# 매칭 노이즈 정제 (DECISION_LOG #16)
+ALT_MIN_DIST_KM = 0.4          # 이보다 가까우면 같은 명소의 하위 구성물로 보고 제외 (건청궁 0km 등)
+ALT_NAME_BLOCK = ("학교", "동상", "졸업", "본관", "생가터")   # 관광 목적지가 아닌 항목 키워드
+ALT_SAME_SUBCAT_BONUS = 0.05   # 동일 소분류(lclsSystm3)면 가산 (궁궐↔궁궐 등 미세 정합)
+
 
 def grade_of(index: float) -> tuple[str, str]:
     """혼잡 지수 → (등급명, 색). 색+텍스트 병기(접근성)."""
