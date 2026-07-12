@@ -3,3 +3,5 @@ python-dotenv>=1.0
 pandas>=2.2
 matplotlib>=3.8
 tabulate>=0.9
+fastembed>=0.4
+numpy>=1.26

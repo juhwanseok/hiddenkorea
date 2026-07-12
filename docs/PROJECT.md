@@ -32,7 +32,8 @@
 - [ ] W0 잔여: **공모전 접수 제출** (7/17 목표) ← **지금 여기** (사용자 액션)
 - [x] W1: POI 50,674 적재 + EDA (매칭 85.2%)
 - [x] W2: 혼잡도 엔진 — 집중률 223,350행 적재, /api/congestion 하이브리드(예측+폴백) 동작, pytest 4통과
-- [ ] W3: 매칭엔진 (임베딩 + HiddenScore)
+- [x] W3: 매칭엔진 — lclsSystm 분류필터 + HiddenScore, /api/alternatives, 분류정합 100%·평균혼잡 31.8
+- [ ] W4~: 프론트(Next.js) + 인프라(Supabase/Vercel — 사용자 계정 필요)
 - [ ] W4~W6: 프론트·LLM·코스
 - [ ] W7~W9: 품질·베타·심사자료
 

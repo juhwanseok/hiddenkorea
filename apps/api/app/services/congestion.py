@@ -15,11 +15,11 @@ import sqlite3
 from ..core.constants import SRC_FORECAST, SRC_MODEL, grade_of
 
 _WS = re.compile(r"\s+")
-_PAREN = re.compile(r"\(.*?\)")
+_BRACKET = re.compile(r"[\(\[].*?[\)\]]")   # (…) 및 […] 접미어 제거
 
 
 def norm_title(s: str) -> str:
-    return _PAREN.sub("", _WS.sub("", (s or ""))).lower()
+    return _WS.sub("", _BRACKET.sub("", (s or ""))).lower()
 
 
 def ymd_to_iso(ymd: str) -> str:

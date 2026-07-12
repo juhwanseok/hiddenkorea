@@ -10,8 +10,10 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
-from .schemas import CongestionResponse, Health
+from .schemas import AlternativesResponse, CongestionResponse, Health
 from .services import congestion as cong
+from .services import matching
+from .services.reason import llm_reason
 
 app = FastAPI(title="숨은한국 API", version="0.2.0")
 
@@ -55,5 +57,26 @@ def congestion(
                 return CongestionResponse(**result)
         # 미커버 → 폴백
         return CongestionResponse(**cong.congestion_fallback(con, signgu, poi["title"], date, contentId))
+    finally:
+        con.close()
+
+
+@app.get("/api/alternatives", response_model=AlternativesResponse)
+def alternatives(
+    contentId: str = Query(..., description="원본 POI contentid"),
+    date: str = Query(..., description="YYYY-MM-DD"),
+    k: int = Query(3, ge=1, le=10),
+) -> AlternativesResponse:
+    con = connect()
+    try:
+        origin = con.execute("SELECT title FROM places WHERE contentid=?", (contentId,)).fetchone()
+        if not origin:
+            raise HTTPException(404, "존재하지 않는 contentId")
+        alts = matching.alternatives(contentId, date, k=k)
+        if not alts:
+            raise HTTPException(422, "대안 후보 없음(임베딩 풀 밖이거나 인근 대안 부재)")
+        for a in alts:
+            a["reason"] = llm_reason(origin["title"], "", a, a.get("addr") or "")
+        return AlternativesResponse(origin=origin["title"], date=date, count=len(alts), alternatives=alts)
     finally:
         con.close()

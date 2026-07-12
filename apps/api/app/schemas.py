@@ -24,6 +24,24 @@ class CongestionResponse(BaseModel):
     series30d: list[DayCongestion]
 
 
+class Alternative(BaseModel):
+    contentId: str
+    name: str
+    addr: str | None = None
+    hiddenScore: float
+    simPct: float
+    congestion: float
+    distanceKm: float
+    reason: str
+
+
+class AlternativesResponse(BaseModel):
+    origin: str
+    date: str
+    count: int
+    alternatives: list[Alternative]
+
+
 class Health(BaseModel):
     status: str
     pois: int
