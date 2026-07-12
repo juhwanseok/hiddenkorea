@@ -16,7 +16,9 @@ node_modules/
 data/raw/
 *.parquet
 *.db
+*.db-journal
 *.log
+*.png
 
 # misc
 .DS_Store
