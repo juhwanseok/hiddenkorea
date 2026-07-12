@@ -64,6 +64,16 @@ class CourseResponse(BaseModel):
     narrative: str
 
 
+class PlaceHit(BaseModel):
+    contentId: str
+    title: str
+    addr: str | None = None
+    contentTypeId: str
+    image: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+
+
 class Health(BaseModel):
     status: str
     pois: int

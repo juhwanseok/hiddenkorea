@@ -10,7 +10,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
-from .schemas import AlternativesResponse, CongestionResponse, CourseResponse, Health
+from .schemas import (
+    AlternativesResponse, CongestionResponse, CourseResponse, Health, PlaceHit,
+)
 from .services import congestion as cong
 from .services import course as course_svc
 from .services import matching
@@ -34,6 +36,31 @@ def health() -> Health:
         except Exception:  # noqa: BLE001 — 적재 전이면 0
             cf = 0
         return Health(status="ok", pois=pois, congestion_rows=cf)
+    finally:
+        con.close()
+
+
+@app.get("/api/places/search", response_model=list[PlaceHit])
+def search_places(
+    q: str = Query(..., min_length=1, description="관광지명 검색"),
+    limit: int = Query(10, ge=1, le=30),
+) -> list[PlaceHit]:
+    con = connect()
+    try:
+        # 집중률 링크(예보 가능) POI 우선, 이미지 있는 것 우선
+        rows = con.execute(
+            """SELECT p.contentid, p.title, p.addr1, p.contenttypeid, p.firstimage, p.mapx, p.mapy,
+                      (SELECT 1 FROM poi_congestion_link l WHERE l.contentid=p.contentid) linked
+               FROM places p
+               WHERE p.title LIKE ? AND p.mapx<>''
+               ORDER BY linked DESC, (p.firstimage<>'') DESC, LENGTH(p.title) ASC
+               LIMIT ?""", (f"%{q}%", limit)).fetchall()
+        def num(v):
+            try: return float(v)
+            except (TypeError, ValueError): return None
+        return [PlaceHit(contentId=r["contentid"], title=r["title"], addr=r["addr1"] or None,
+                         contentTypeId=r["contenttypeid"], image=r["firstimage"] or None,
+                         lat=num(r["mapy"]), lon=num(r["mapx"])) for r in rows]
     finally:
         con.close()
 
