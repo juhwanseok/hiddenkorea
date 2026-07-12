@@ -11,11 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
 from .schemas import (
-    AlternativesResponse, CongestionResponse, CourseResponse, Health, PlaceHit,
+    AlternativesResponse, CongestionResponse, CourseResponse, Health, PlaceDetail, PlaceHit,
 )
 from .services import congestion as cong
 from .services import course as course_svc
 from .services import matching
+from .services.details import get_detail
 from .services.reason import llm_reason
 
 app = FastAPI(title="숨은한국 API", version="0.2.0")
@@ -65,6 +66,15 @@ def search_places(
         con.close()
 
 
+@app.get("/api/places/detail", response_model=PlaceDetail)
+def place_detail(contentId: str = Query(..., description="TourAPI contentid")) -> PlaceDetail:
+    con = connect()
+    try:
+        return PlaceDetail(**get_detail(con, contentId))
+    finally:
+        con.close()
+
+
 @app.get("/api/congestion", response_model=CongestionResponse)
 def congestion(
     contentId: str = Query(..., description="TourAPI contentid"),
@@ -108,6 +118,8 @@ def alternatives(
             raise HTTPException(422, "대안 후보 없음(임베딩 풀 밖이거나 인근 대안 부재)")
         for a in alts:
             a["reason"] = llm_reason(origin["title"], "", a, a.get("addr") or "")
+            ov = get_detail(con, a["contentId"]).get("overview") or ""
+            a["overview"] = ov[:160] or None      # 카드용 짧은 '무엇을 할 수 있는지'
         return AlternativesResponse(origin=origin["title"], date=date, count=len(alts), alternatives=alts)
     finally:
         con.close()

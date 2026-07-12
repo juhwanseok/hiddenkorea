@@ -13,7 +13,10 @@ export type Congestion = {
 };
 export type Alternative = {
   contentId: string; name: string; addr?: string | null; hiddenScore: number;
-  simPct: number; congestion: number; distanceKm: number; reason: string;
+  simPct: number; congestion: number; distanceKm: number; reason: string; overview?: string | null;
+};
+export type PlaceDetail = {
+  contentId: string; overview?: string | null; homepage?: string | null; tel?: string | null;
 };
 export type Alternatives = { origin: string; date: string; count: number; alternatives: Alternative[] };
 export type CourseLeg = {
@@ -33,6 +36,7 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   search: (q: string) => get<PlaceHit[]>(`/api/places/search?q=${encodeURIComponent(q)}&limit=10`),
+  detail: (contentId: string) => get<PlaceDetail>(`/api/places/detail?contentId=${contentId}`),
   congestion: (contentId: string, date: string) =>
     get<Congestion>(`/api/congestion?contentId=${contentId}&date=${date}`),
   alternatives: (contentId: string, date: string, k = 3) =>

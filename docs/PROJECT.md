@@ -35,7 +35,8 @@
 - [x] W3: 매칭엔진 — lclsSystm 분류필터 + HiddenScore, /api/alternatives, 분류정합 100%·평균혼잡 31.8
 - [x] W6(선행): 코스엔진 — 2-opt 동선최적화 + LLM 서사, /api/course. **백엔드 3대 API 완성**
 - [x] W4~6: Next.js 프론트 — 검색→예보→대안→코스 **full flow 브라우저 E2E 검증 완료** (로컬 SQLite+FastAPI 연동)
-- [ ] 남음: 인프라 배포(Supabase/Vercel — 클라우드 계정), 카카오맵 SDK 임베드, 공유링크, ML 갭모델, W7~9 품질·베타·심사자료
+- [x] UX 강화: 요일 헤더 달력, POI 상세 설명(detailCommon2 '이곳에서는'), 로고 클릭 리셋 + 트랜지션/폴백. 프로덕션 빌드 통과
+- [ ] 남음: 인프라 배포(Supabase/Vercel — 클라우드 계정), 카카오맵 실제 키, 공유링크, W7~9 품질·베타·심사자료
 - [ ] W4~W6: 프론트·LLM·코스
 - [ ] W7~W9: 품질·베타·심사자료
 

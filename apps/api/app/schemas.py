@@ -24,6 +24,13 @@ class CongestionResponse(BaseModel):
     series30d: list[DayCongestion]
 
 
+class PlaceDetail(BaseModel):
+    contentId: str
+    overview: str | None = None
+    homepage: str | None = None
+    tel: str | None = None
+
+
 class Alternative(BaseModel):
     contentId: str
     name: str
@@ -33,6 +40,7 @@ class Alternative(BaseModel):
     congestion: float
     distanceKm: float
     reason: str
+    overview: str | None = None
 
 
 class AlternativesResponse(BaseModel):
