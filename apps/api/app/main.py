@@ -73,7 +73,8 @@ def congestion(
     con = connect()
     try:
         poi = con.execute(
-            "SELECT title, ldongRegnCd, ldongSignguCd FROM places WHERE contentid=?", (contentId,)
+            "SELECT title, ldongRegnCd, ldongSignguCd, lclsSystm1, lclsSystm2 "
+            "FROM places WHERE contentid=?", (contentId,)
         ).fetchone()
         if not poi:
             raise HTTPException(404, "존재하지 않는 contentId")
@@ -83,8 +84,10 @@ def congestion(
             result = cong.congestion_by_spot(con, spot["signguCd"], spot["tAtsNm"], date, contentId)
             if result:
                 return CongestionResponse(**result)
-        # 미커버 → 폴백
-        return CongestionResponse(**cong.congestion_fallback(con, signgu, poi["title"], date, contentId))
+        # 미커버 → ML 갭모델 폴백
+        return CongestionResponse(**cong.congestion_fallback(
+            con, signgu, poi["title"], date, contentId,
+            area=poi["ldongRegnCd"] or "", lcls1=poi["lclsSystm1"] or "", lcls2=poi["lclsSystm2"] or ""))
     finally:
         con.close()
 

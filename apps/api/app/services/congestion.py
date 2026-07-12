@@ -13,6 +13,7 @@ import re
 import sqlite3
 
 from ..core.constants import SRC_FORECAST, SRC_MODEL, grade_of
+from . import gap_model
 
 _WS = re.compile(r"\s+")
 _BRACKET = re.compile(r"[\(\[].*?[\)\]]")   # (…) 및 […] 접미어 제거
@@ -67,15 +68,24 @@ def congestion_by_spot(con: sqlite3.Connection, signgu: str, name: str,
 
 
 def congestion_fallback(con: sqlite3.Connection, signgu: str, name: str, date_iso: str,
-                        content_id: str | None = None) -> dict:
-    """미커버 POI 폴백 — 동일 시군구 평균 혼잡(자체 ML 대체 전 v0). source=HK_MODEL."""
-    rows = con.execute(
-        "SELECT AVG(cnctrRate) a FROM congestion_forecast WHERE signguCd=?", (signgu,)
-    ).fetchone()
-    idx = round(float(rows["a"]), 1) if rows and rows["a"] is not None else 50.0
+                        content_id: str | None = None, area: str = "", lcls1: str = "",
+                        lcls2: str = "") -> dict:
+    """미커버 POI 폴백 — ①자체 ML 갭모델(지역·카테고리·달력) ②실패 시 시군구 평균. source=HK_MODEL."""
+    series: list[dict] = []
+    idx = gap_model.predict_index(area, lcls1, lcls2, date_iso) if area else None
+    note = "집중률 미커버 — 숨은한국 AI 모델 추정"
+    if idx is not None:
+        for s in gap_model.predict_series(area, lcls1, lcls2):
+            g, c = grade_of(s["index"])
+            series.append({**s, "grade": g, "color": c})
+    else:  # 모델 없거나 실패 → 시군구 평균
+        row = con.execute("SELECT AVG(cnctrRate) a FROM congestion_forecast WHERE signguCd=?",
+                          (signgu,)).fetchone()
+        idx = round(float(row["a"]), 1) if row and row["a"] is not None else 50.0
+        note = "집중률 미커버 — 시군구 평균 기반 근사(추정)"
     g, c = grade_of(idx)
     return {
         "contentId": content_id, "name": name, "signguCd": signgu, "date": date_iso,
         "index": idx, "grade": g, "color": c, "source": SRC_MODEL,
-        "note": "집중률 미커버 지역 — 시군구 평균 기반 근사(추정)", "series30d": [],
+        "note": note, "series30d": series,
     }

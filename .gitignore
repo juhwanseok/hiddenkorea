@@ -19,6 +19,10 @@ data/raw/
 *.db-journal
 *.log
 *.png
+# 파생 산출물(파이프라인으로 재생성) — 임베딩·ML모델
+data/embeddings.npz
+data/congestion_gap_model.txt
+data/congestion_gap_meta.json
 
 # misc
 .DS_Store
