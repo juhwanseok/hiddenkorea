@@ -42,6 +42,28 @@ class AlternativesResponse(BaseModel):
     alternatives: list[Alternative]
 
 
+class CourseLeg(BaseModel):
+    seq: int
+    contentId: str
+    name: str
+    arrive: str
+    lat: float
+    lon: float
+    congestion: float | None = None
+    image: str | None = None
+    travelKmFromPrev: float
+
+
+class CourseResponse(BaseModel):
+    date: str
+    startTime: str
+    totalDistanceKm: float
+    stops: int
+    legs: list[CourseLeg]
+    kakaoMapUrl: str
+    narrative: str
+
+
 class Health(BaseModel):
     status: str
     pois: int

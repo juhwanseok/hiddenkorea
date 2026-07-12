@@ -10,8 +10,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
-from .schemas import AlternativesResponse, CongestionResponse, Health
+from .schemas import AlternativesResponse, CongestionResponse, CourseResponse, Health
 from .services import congestion as cong
+from .services import course as course_svc
 from .services import matching
 from .services.reason import llm_reason
 
@@ -78,5 +79,24 @@ def alternatives(
         for a in alts:
             a["reason"] = llm_reason(origin["title"], "", a, a.get("addr") or "")
         return AlternativesResponse(origin=origin["title"], date=date, count=len(alts), alternatives=alts)
+    finally:
+        con.close()
+
+
+@app.get("/api/course", response_model=CourseResponse)
+def course(
+    poiIds: str = Query(..., description="쉼표구분 contentid (2개 이상)"),
+    date: str = Query(..., description="YYYY-MM-DD"),
+    startTime: str = Query("09:00"),
+) -> CourseResponse:
+    ids = [x.strip() for x in poiIds.split(",") if x.strip()]
+    if len(ids) < 2:
+        raise HTTPException(422, "코스는 2개 이상 장소 필요")
+    con = connect()
+    try:
+        result = course_svc.build_course(con, ids, date, startTime)
+        if not result:
+            raise HTTPException(404, "유효한 좌표 POI가 2개 미만")
+        return CourseResponse(**result)
     finally:
         con.close()
