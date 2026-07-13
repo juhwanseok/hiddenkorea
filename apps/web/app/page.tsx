@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, type PlaceHit, type Congestion, type Alternatives, type Course, type PlaceDetail } from "@/lib/api";
 import KakaoMap from "@/components/KakaoMap";
 import HeatCalendar from "@/components/HeatCalendar";
+import TripPlanner from "@/components/TripPlanner";
 
 const TODAY = new Date();
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -20,6 +21,7 @@ export default function Home() {
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [mode, setMode] = useState<"place" | "trip">("place");
 
   const run = async (tag: string, fn: () => Promise<void>) => {
     setLoading(tag); setErr(null);
@@ -27,7 +29,7 @@ export default function Home() {
   };
   const reset = () => {
     setQ(""); setHits([]); setSel(null); setCong(null); setDetail(null);
-    setAlts(null); setCourse(null); setPicked({}); setErr(null);
+    setAlts(null); setCourse(null); setPicked({}); setErr(null); setMode("place");
   };
   const doSearch = () => run("search", async () => {
     setSel(null); setCong(null); setDetail(null); setAlts(null); setCourse(null);
@@ -57,6 +59,19 @@ export default function Home() {
         <p className="text-sm text-slate-500">붐비는 곳 말고, 숨은 한국 — 혼잡 예측 기반 여행 추천</p>
       </header>
 
+      {/* 탭 */}
+      <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1">
+        {([["place", "장소별 혼잡"], ["trip", "여행 일정 추천"]] as const).map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)}
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition ${mode === m ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "trip" && <TripPlanner />}
+
+      {mode === "place" && (<>
       <div className="flex gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doSearch()}
           placeholder="관광지 검색 (예: 경복궁, 해운대)"
@@ -165,6 +180,7 @@ export default function Home() {
             className="mt-3 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold transition hover:bg-yellow-300">카카오맵에서 열기</a>
         </section>
       )}
+      </>)}
 
       <footer className="mt-10 text-center text-[11px] text-slate-400">데이터: 한국관광공사 TourAPI · 기상청</footer>
     </main>

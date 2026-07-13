@@ -82,6 +82,38 @@ class PlaceHit(BaseModel):
     lon: float | None = None
 
 
+class Region(BaseModel):
+    code: str
+    name: str
+
+
+class ItineraryStop(BaseModel):
+    seq: int
+    contentId: str
+    name: str
+    arrive: str
+    lat: float
+    lon: float
+    congestion: float
+    image: str | None = None
+
+
+class ItineraryDay(BaseModel):
+    date: str
+    weekday: str
+    avgCongestion: float
+    stops: list[ItineraryStop]
+
+
+class ItineraryResponse(BaseModel):
+    areaName: str
+    signguName: str | None = None
+    genre: str
+    startDate: str
+    endDate: str
+    days: list[ItineraryDay]
+
+
 class Health(BaseModel):
     status: str
     pois: int

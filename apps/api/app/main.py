@@ -10,12 +10,16 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
+from .core.constants import GENRE_ORDER
 from .schemas import (
-    AlternativesResponse, CongestionResponse, CourseResponse, Health, PlaceDetail, PlaceHit,
+    AlternativesResponse, CongestionResponse, CourseResponse, Health, ItineraryResponse,
+    PlaceDetail, PlaceHit, Region,
 )
 from .services import congestion as cong
 from .services import course as course_svc
+from .services import itinerary as itin
 from .services import matching
+from .services import regions as regions_svc
 from .services.details import get_detail
 from .services.reason import llm_reason
 
@@ -41,21 +45,58 @@ def health() -> Health:
         con.close()
 
 
+@app.get("/api/regions", response_model=list[Region])
+def regions(areaCd: str | None = Query(None, description="시도코드 주면 시군구, 없으면 시도 목록")):
+    return regions_svc.sigungu_list(areaCd) if areaCd else regions_svc.sido_list()
+
+
+@app.get("/api/genres", response_model=list[str])
+def genres() -> list[str]:
+    return GENRE_ORDER
+
+
+@app.get("/api/itinerary", response_model=ItineraryResponse)
+def itinerary(
+    areaCd: str = Query(..., description="시도 행정표준코드"),
+    startDate: str = Query(..., description="YYYY-MM-DD"),
+    endDate: str = Query(..., description="YYYY-MM-DD"),
+    genre: str = Query("관광지"),
+    signguCd: str = Query("", description="시군구 5자리(선택)"),
+) -> ItineraryResponse:
+    con = connect()
+    try:
+        result = itin.build_itinerary(con, areaCd, signguCd, genre, startDate, endDate)
+        if not result:
+            raise HTTPException(404, "해당 지역·장르에 추천할 장소가 없습니다")
+        return ItineraryResponse(**result)
+    finally:
+        con.close()
+
+
 @app.get("/api/places/search", response_model=list[PlaceHit])
 def search_places(
     q: str = Query(..., min_length=1, description="관광지명 검색"),
+    areaCd: str | None = Query(None, description="시도 필터"),
+    contentTypeId: str | None = Query(None, description="콘텐츠타입 필터"),
     limit: int = Query(10, ge=1, le=30),
 ) -> list[PlaceHit]:
     con = connect()
     try:
+        where = ["p.title LIKE ?", "p.mapx<>''"]
+        args: list = [f"%{q}%"]
+        if areaCd:
+            where.append("p.ldongRegnCd=?"); args.append(areaCd)
+        if contentTypeId:
+            where.append("p.contenttypeid=?"); args.append(contentTypeId)
+        args.append(limit)
         # 집중률 링크(예보 가능) POI 우선, 이미지 있는 것 우선
         rows = con.execute(
-            """SELECT p.contentid, p.title, p.addr1, p.contenttypeid, p.firstimage, p.mapx, p.mapy,
+            f"""SELECT p.contentid, p.title, p.addr1, p.contenttypeid, p.firstimage, p.mapx, p.mapy,
                       (SELECT 1 FROM poi_congestion_link l WHERE l.contentid=p.contentid) linked
                FROM places p
-               WHERE p.title LIKE ? AND p.mapx<>''
+               WHERE {' AND '.join(where)}
                ORDER BY linked DESC, (p.firstimage<>'') DESC, LENGTH(p.title) ASC
-               LIMIT ?""", (f"%{q}%", limit)).fetchall()
+               LIMIT ?""", args).fetchall()
         def num(v):
             try: return float(v)
             except (TypeError, ValueError): return None

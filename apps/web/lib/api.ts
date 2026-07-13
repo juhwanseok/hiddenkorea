@@ -27,6 +27,16 @@ export type Course = {
   date: string; startTime: string; totalDistanceKm: number; stops: number;
   legs: CourseLeg[]; kakaoMapUrl: string; narrative: string;
 };
+export type Region = { code: string; name: string };
+export type ItineraryStop = {
+  seq: number; contentId: string; name: string; arrive: string;
+  lat: number; lon: number; congestion: number; image?: string | null;
+};
+export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; stops: ItineraryStop[] };
+export type Itinerary = {
+  areaName: string; signguName?: string | null; genre: string;
+  startDate: string; endDate: string; days: ItineraryDay[];
+};
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, { cache: "no-store" });
@@ -43,4 +53,8 @@ export const api = {
     get<Alternatives>(`/api/alternatives?contentId=${contentId}&date=${date}&k=${k}`),
   course: (poiIds: string[], date: string) =>
     get<Course>(`/api/course?poiIds=${poiIds.join(",")}&date=${date}`),
+  regions: (areaCd?: string) => get<Region[]>(`/api/regions${areaCd ? `?areaCd=${areaCd}` : ""}`),
+  genres: () => get<string[]>(`/api/genres`),
+  itinerary: (areaCd: string, startDate: string, endDate: string, genre: string, signguCd = "") =>
+    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genre=${encodeURIComponent(genre)}${signguCd ? `&signguCd=${signguCd}` : ""}`),
 };

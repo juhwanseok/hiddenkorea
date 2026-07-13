@@ -64,6 +64,16 @@ def predict_index(area: str, lcls1: str, lcls2: str, date_iso: str) -> float | N
     return round(float(val), 1)
 
 
+def predict_batch(items: list[tuple[str, str, str, str]]) -> list[float] | None:
+    """(area, lcls1, lcls2, date_iso) 배치 → 혼잡지수 리스트. 일정 추천용."""
+    m = _load()
+    if not m or not items:
+        return None
+    booster, meta = m
+    rows = [_feat_row(meta, a, l1, l2, dt) for a, l1, l2, dt in items]
+    return [round(float(v), 1) for v in _predict(meta, booster, rows)]
+
+
 def predict_series(area: str, lcls1: str, lcls2: str) -> list[dict]:
     """모델 학습 예보창(base_min~+29)에 대한 30일 시계열."""
     m = _load()
