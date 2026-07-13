@@ -33,7 +33,7 @@ git push -u origin main
 2. **Root Directory** = `apps/web` (중요)
 3. **Environment Variables**:
    - `NEXT_PUBLIC_API_BASE` = 2단계 Railway 백엔드 URL
-   - `NEXT_PUBLIC_KAKAO_MAP_KEY` = `d7d10e806dfe592c05ecc74d83001aec`
+   - `NEXT_PUBLIC_KAKAO_MAP_KEY` = 로컬 `.env.local`의 카카오 JavaScript 키
 4. Deploy → 프론트 URL 확보(예: `https://hiddenkorea.vercel.app`)
 
 ## 4. 마무리 연결
