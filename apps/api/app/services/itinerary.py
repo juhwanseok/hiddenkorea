@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timedelta
 
-from ..core.constants import GENRES
+from ..core.constants import GENRES, FOOD_CATS
 from . import gap_model
 from . import weather as weather_svc
 from .regions import _load as _rload
@@ -59,7 +59,8 @@ def _resolve_cts(genres: list[str]) -> tuple[list[str], bool]:
 
 
 def _candidates(con: sqlite3.Connection, area: str, signgu: str, ctids: list[str],
-                lcls2_in: str | None = None, lcls2_not: str | None = None) -> list[dict]:
+                lcls2_in: str | None = None, lcls2_not: str | None = None,
+                lcls3_in: list[str] | None = None) -> list[dict]:
     where = ["p.ldongRegnCd=?", "p.mapx<>''", "p.title<>''",
              f"p.contenttypeid IN ({','.join('?'*len(ctids))})"]
     args: list = [area, *ctids]
@@ -70,6 +71,8 @@ def _candidates(con: sqlite3.Connection, area: str, signgu: str, ctids: list[str
         where.append("p.lclsSystm2=?"); args.append(lcls2_in)
     if lcls2_not:
         where.append("p.lclsSystm2<>?"); args.append(lcls2_not)
+    if lcls3_in:
+        where.append(f"p.lclsSystm3 IN ({','.join('?'*len(lcls3_in))})"); args += lcls3_in
     rows = con.execute(
         f"""SELECT p.contentid, p.title, p.mapx, p.mapy, p.firstimage, p.contenttypeid,
                    p.ldongRegnCd, p.lclsSystm1, p.lclsSystm2,
@@ -116,11 +119,17 @@ def _mk_stop(c: dict, seq: int, time: str, label: str, kind: str, cong: float) -
 
 
 def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: list[str],
-                    start: str, end: str) -> dict | None:
+                    start: str, end: str, food_cat: str = "") -> dict | None:
     act_ct, want_food = _resolve_cts(genres)
     days = _dates(start, end)
     act_pool = _candidates(con, area, signgu, act_ct)
-    meal_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
+    # 식사 풀: 음식 종류 선택 시 해당 카테고리(한식/중식/일식/양식/분식)로 필터
+    spec = FOOD_CATS.get(food_cat)
+    if spec:
+        meal_pool = _candidates(con, area, signgu, FOOD_CT,
+                                lcls2_in=spec.get("l2"), lcls3_in=spec.get("l3"))
+    else:
+        meal_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
     cafe_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)
     indoor_pool = _candidates(con, area, signgu, INDOOR_CT)                     # 문화시설(악천후 실내 대안)
     if not act_pool and not meal_pool and not cafe_pool:

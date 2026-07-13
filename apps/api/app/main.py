@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.db import connect
 import random
 
-from .core.constants import GENRE_ORDER
+from .core.constants import GENRE_ORDER, FOOD_CAT_ORDER
 from .schemas import (
     AlternativesResponse, CongestionResponse, CourseResponse, Health, HighlightRegion,
     HighlightSpot, ItineraryResponse, PlaceDetail, PlaceHit, Region,
@@ -58,6 +58,11 @@ def genres() -> list[str]:
     return GENRE_ORDER
 
 
+@app.get("/api/food-categories", response_model=list[str])
+def food_categories() -> list[str]:
+    return FOOD_CAT_ORDER
+
+
 @app.get("/api/itinerary", response_model=ItineraryResponse)
 def itinerary(
     areaCd: str = Query(..., description="시도 행정표준코드"),
@@ -65,11 +70,12 @@ def itinerary(
     endDate: str = Query(..., description="YYYY-MM-DD"),
     genres: str = Query("관광지", description="장르 콤마구분 다중선택"),
     signguCd: str = Query("", description="시군구 5자리(선택)"),
+    foodCat: str = Query("", description="음식 종류(한식/중식/일식/양식/분식·간식). 식도락 선택 시"),
 ) -> ItineraryResponse:
     glist = [g.strip() for g in genres.split(",") if g.strip()] or ["관광지"]
     con = connect()
     try:
-        result = itin.build_itinerary(con, areaCd, signguCd, glist, startDate, endDate)
+        result = itin.build_itinerary(con, areaCd, signguCd, glist, startDate, endDate, food_cat=foodCat)
         if not result:
             raise HTTPException(404, "해당 지역·장르에 추천할 장소가 없습니다")
         return ItineraryResponse(**result)

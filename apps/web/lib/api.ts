@@ -61,6 +61,7 @@ export const api = {
     get<Course>(`/api/course?poiIds=${poiIds.join(",")}&date=${date}`),
   regions: (areaCd?: string) => get<Region[]>(`/api/regions${areaCd ? `?areaCd=${areaCd}` : ""}`),
   genres: () => get<string[]>(`/api/genres`),
-  itinerary: (areaCd: string, startDate: string, endDate: string, genres: string[], signguCd = "") =>
-    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genres=${encodeURIComponent(genres.join(","))}${signguCd ? `&signguCd=${signguCd}` : ""}`),
+  foodCategories: () => get<string[]>(`/api/food-categories`),
+  itinerary: (areaCd: string, startDate: string, endDate: string, genres: string[], signguCd = "", foodCat = "") =>
+    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genres=${encodeURIComponent(genres.join(","))}${signguCd ? `&signguCd=${signguCd}` : ""}${foodCat && foodCat !== "전체" ? `&foodCat=${encodeURIComponent(foodCat)}` : ""}`),
 };

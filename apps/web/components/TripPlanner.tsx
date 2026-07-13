@@ -40,6 +40,8 @@ export default function TripPlanner() {
   const [sido, setSido] = useState<Region[]>([]);
   const [sigungu, setSigungu] = useState<Region[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
+  const [foodCats, setFoodCats] = useState<string[]>([]);
+  const [foodCat, setFoodCat] = useState("전체");
   const [area, setArea] = useState("");
   const [sgu, setSgu] = useState("");
   const [picked, setPicked] = useState<string[]>(["관광지"]);
@@ -49,7 +51,11 @@ export default function TripPlanner() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => { api.regions().then(setSido).catch(() => {}); api.genres().then(setGenres).catch(() => {}); }, []);
+  useEffect(() => {
+    api.regions().then(setSido).catch(() => {});
+    api.genres().then(setGenres).catch(() => {});
+    api.foodCategories().then(setFoodCats).catch(() => {});
+  }, []);
   useEffect(() => {
     setSgu("");
     if (area) api.regions(area).then(setSigungu).catch(() => setSigungu([]));
@@ -62,7 +68,7 @@ export default function TripPlanner() {
   const gen = async () => {
     if (!area || !start) { setErr("지역과 기간(시작일)을 선택하세요"); return; }
     setLoading(true); setErr(null); setPlan(null);
-    try { setPlan(await api.itinerary(area, start, end || start, picked, sgu)); }
+    try { setPlan(await api.itinerary(area, start, end || start, picked, sgu, picked.includes("식도락") ? foodCat : "")); }
     catch (e) { setErr(String(e)); } finally { setLoading(false); }
   };
 
@@ -97,6 +103,21 @@ export default function TripPlanner() {
         </div>
         <p className="mt-1 text-[11px] text-slate-400">여러 개 선택 가능 · 식사·카페는 자동으로 알맞은 시간에 넣어드려요</p>
       </div>
+
+      {/* 음식 종류 (식도락 선택 시) */}
+      {picked.includes("식도락") && foodCats.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs font-semibold text-amber-700">🍽️ 음식 종류</p>
+          <div className="flex flex-wrap gap-2">
+            {foodCats.map((f) => (
+              <button key={f} onClick={() => setFoodCat(f)}
+                className={`rounded-full px-3 py-1 text-sm transition ${foodCat === f ? "bg-amber-500 text-white" : "border border-slate-300 text-slate-600 hover:bg-amber-50"}`}>
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 기간 달력 */}
       <div className="mt-4 rounded-xl border border-slate-200 p-3">
