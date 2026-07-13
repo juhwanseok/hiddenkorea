@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { api, type PlaceHit, type Congestion, type Alternatives, type Course, type PlaceDetail } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { api, type PlaceHit, type Congestion, type Alternatives, type Course, type PlaceDetail, type HighlightRegion } from "@/lib/api";
 import KakaoMap from "@/components/KakaoMap";
 import HeatCalendar from "@/components/HeatCalendar";
 import TripPlanner from "@/components/TripPlanner";
@@ -22,6 +22,16 @@ export default function Home() {
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [mode, setMode] = useState<"place" | "trip">("place");
+  const [popular, setPopular] = useState<PlaceHit[]>([]);
+  const [focused, setFocused] = useState(false);
+  const [highlights, setHighlights] = useState<HighlightRegion[]>([]);
+
+  // 홈 유휴 상태: 선택일 기준 '평소보다 한적한 명소' 로드 (날짜 변경 시 갱신 = 유동적)
+  useEffect(() => {
+    if (mode === "place" && !sel && !hits.length) {
+      api.highlights(date).then(setHighlights).catch(() => setHighlights([]));
+    }
+  }, [date, mode, sel, hits.length]);
 
   const run = async (tag: string, fn: () => Promise<void>) => {
     setLoading(tag); setErr(null);
@@ -36,10 +46,16 @@ export default function Home() {
     setHits(await api.search(q));
   });
   const pickPlace = (p: PlaceHit) => run("cong", async () => {
-    setSel(p); setAlts(null); setCourse(null); setPicked({}); setDetail(null);
+    setSel(p); setAlts(null); setCourse(null); setPicked({}); setDetail(null); setFocused(false);
     setCong(await api.congestion(p.contentId, date));
     api.detail(p.contentId).then(setDetail).catch(() => {});
   });
+  const pickById = (contentId: string, title: string) =>
+    pickPlace({ contentId, title, contentTypeId: "12" } as PlaceHit);
+  const onFocus = () => {
+    setFocused(true);
+    if (!popular.length) api.popular(8).then(setPopular).catch(() => {});
+  };
   const changeDate = (d: string) => {
     setDate(d);
     if (sel) run("cong", async () => setCong(await api.congestion(sel.contentId, d)));
@@ -74,6 +90,7 @@ export default function Home() {
       {mode === "place" && (<>
       <div className="flex gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doSearch()}
+          onFocus={onFocus}
           placeholder="관광지 검색 (예: 경복궁, 해운대)"
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100" />
         <input type="date" value={date} min={plus(0)} max={plus(29)} onChange={(e) => changeDate(e.target.value)}
@@ -94,6 +111,51 @@ export default function Home() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* 검색 포커스 시: 인기 관광지 (매번 랜덤) */}
+      {focused && !sel && hits.length === 0 && popular.length > 0 && (
+        <div className="mt-3 rounded-xl border border-slate-200 p-3">
+          <p className="mb-2 text-xs font-semibold text-slate-500">인기 관광지</p>
+          <div className="flex flex-wrap gap-2">
+            {popular.map((p) => (
+              <button key={p.contentId} onClick={() => pickById(p.contentId, p.title)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-sm text-slate-600 transition hover:bg-teal-50 hover:text-teal-700">
+                {p.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 홈 유휴: 선택일에 평소보다 한적한 명소 (지역별, 날짜 따라 유동적) */}
+      {!sel && hits.length === 0 && highlights.length > 0 && (
+        <section className="mt-6 animate-[fadeIn_.3s_ease]">
+          <h2 className="text-base font-bold text-slate-800">
+            {Number(date.slice(5, 7))}월 {Number(date.slice(8, 10))}일, 평소보다 한적한 명소 🌿
+          </h2>
+          <p className="mb-3 text-xs text-slate-500">이 날은 아래 명소들이 평소(30일 평균)보다 한산할 것으로 예측돼요. 클릭하면 상세 예보를 볼 수 있어요.</p>
+          <div className="space-y-4">
+            {highlights.map((rg) => (
+              <div key={rg.areaName}>
+                <p className="mb-1.5 text-sm font-semibold text-teal-700">{rg.areaName}</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {rg.spots.map((s) => (
+                    <button key={s.contentId} onClick={() => pickById(s.contentId, s.name)}
+                      className="flex items-center gap-2 overflow-hidden rounded-lg border border-slate-200 p-2 text-left transition hover:shadow-md">
+                      {s.image ? <img src={s.image} alt="" className="h-12 w-12 shrink-0 rounded object-cover" /> : <div className="h-12 w-12 shrink-0 rounded bg-slate-100" />}
+                      <span className="min-w-0">
+                        <b className="block truncate text-sm">{s.name}</b>
+                        <span className="text-[11px] text-slate-500">혼잡 {s.today}</span>
+                        <span className="ml-1 rounded bg-green-100 px-1 text-[11px] font-semibold text-green-700">평소 -{s.dropPct}%</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {cong && sel && (

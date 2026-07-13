@@ -87,6 +87,20 @@ class Region(BaseModel):
     name: str
 
 
+class HighlightSpot(BaseModel):
+    contentId: str
+    name: str
+    today: float          # 선택일 혼잡 지수
+    avg: float            # 자기 30일 평균
+    dropPct: int          # 평소 대비 감소율(%)
+    image: str | None = None
+
+
+class HighlightRegion(BaseModel):
+    areaName: str
+    spots: list[HighlightSpot]
+
+
 class ItineraryStop(BaseModel):
     seq: int
     contentId: str

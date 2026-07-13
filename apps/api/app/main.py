@@ -10,10 +10,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import connect
+import random
+
 from .core.constants import GENRE_ORDER
 from .schemas import (
-    AlternativesResponse, CongestionResponse, CourseResponse, Health, ItineraryResponse,
-    PlaceDetail, PlaceHit, Region,
+    AlternativesResponse, CongestionResponse, CourseResponse, Health, HighlightRegion,
+    HighlightSpot, ItineraryResponse, PlaceDetail, PlaceHit, Region,
 )
 from .services import congestion as cong
 from .services import course as course_svc
@@ -104,6 +106,71 @@ def search_places(
         return [PlaceHit(contentId=r["contentid"], title=r["title"], addr=r["addr1"] or None,
                          contentTypeId=r["contenttypeid"], image=r["firstimage"] or None,
                          lat=num(r["mapy"]), lon=num(r["mapx"])) for r in rows]
+    finally:
+        con.close()
+
+
+@app.get("/api/places/popular", response_model=list[PlaceHit])
+def popular_places(n: int = Query(8, ge=1, le=20)) -> list[PlaceHit]:
+    """검색창 포커스용 인기 관광지 — 집중률 커버+이미지 있는 관광지에서 랜덤(매번 바뀜)."""
+    con = connect()
+    try:
+        rows = con.execute(
+            """SELECT p.contentid, p.title, p.addr1, p.contenttypeid, p.firstimage, p.mapx, p.mapy
+               FROM places p JOIN poi_congestion_link l ON p.contentid=l.contentid
+               WHERE p.contenttypeid='12' AND p.firstimage<>''
+               ORDER BY RANDOM() LIMIT ?""", (n,)).fetchall()
+        def num(v):
+            try: return float(v)
+            except (TypeError, ValueError): return None
+        return [PlaceHit(contentId=r["contentid"], title=r["title"], addr=r["addr1"] or None,
+                         contentTypeId=r["contenttypeid"], image=r["firstimage"] or None,
+                         lat=num(r["mapy"]), lon=num(r["mapx"])) for r in rows]
+    finally:
+        con.close()
+
+
+@app.get("/api/highlights", response_model=list[HighlightRegion])
+def highlights(
+    date: str = Query(..., description="YYYY-MM-DD"),
+    perRegion: int = Query(3, ge=1, le=6),
+    regionsN: int = Query(6, ge=1, le=17),
+) -> list[HighlightRegion]:
+    """선택일에 '평소(자기 30일 평균)보다 한적한' 명소를 지역별로. 날짜 바뀌면 결과도 바뀜."""
+    ymd = date.replace("-", "")
+    con = connect()
+    try:
+        rows = con.execute(
+            """SELECT l.contentid, p.title, p.firstimage, p.ldongRegnCd AS area,
+                      st.today, st.avg_rate
+               FROM (
+                 SELECT signguCd, tAtsNm, AVG(cnctrRate) avg_rate,
+                        AVG(CASE WHEN baseYmd=? THEN cnctrRate END) today
+                 FROM congestion_forecast GROUP BY signguCd, tAtsNm
+               ) st
+               JOIN poi_congestion_link l ON st.signguCd=l.signguCd AND st.tAtsNm=l.tAtsNm
+               JOIN places p ON l.contentid=p.contentid
+               WHERE st.today IS NOT NULL AND st.avg_rate>0
+                     AND st.today < st.avg_rate*0.85 AND st.today < 45 AND p.firstimage<>''""",
+            (ymd,)).fetchall()
+        from .services.regions import _load as rload
+        sido = rload()["sido"]
+        by_area: dict[str, list[dict]] = {}
+        for r in rows:
+            drop = int(round((1 - r["today"] / r["avg_rate"]) * 100))
+            by_area.setdefault(r["area"], []).append({
+                "contentId": r["contentid"], "name": r["title"],
+                "today": round(r["today"], 1), "avg": round(r["avg_rate"], 1),
+                "dropPct": drop, "image": r["firstimage"] or None})
+        # 후보 지역(2곳 이상) 중 랜덤 선택 → 유동적
+        areas = [a for a, v in by_area.items() if len(v) >= 2]
+        random.shuffle(areas)
+        out = []
+        for a in areas[:regionsN]:
+            spots = sorted(by_area[a], key=lambda s: s["today"])[:perRegion]
+            out.append(HighlightRegion(areaName=sido.get(a, a),
+                                       spots=[HighlightSpot(**s) for s in spots]))
+        return out
     finally:
         con.close()
 

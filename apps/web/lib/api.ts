@@ -28,6 +28,8 @@ export type Course = {
   legs: CourseLeg[]; kakaoMapUrl: string; narrative: string;
 };
 export type Region = { code: string; name: string };
+export type HighlightSpot = { contentId: string; name: string; today: number; avg: number; dropPct: number; image?: string | null };
+export type HighlightRegion = { areaName: string; spots: HighlightSpot[] };
 export type ItineraryStop = {
   seq: number; contentId: string; name: string; arrive: string;
   label: string; kind: "act" | "meal" | "cafe";
@@ -47,6 +49,8 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   search: (q: string) => get<PlaceHit[]>(`/api/places/search?q=${encodeURIComponent(q)}&limit=10`),
+  popular: (n = 8) => get<PlaceHit[]>(`/api/places/popular?n=${n}`),
+  highlights: (date: string) => get<HighlightRegion[]>(`/api/highlights?date=${date}&regionsN=6&perRegion=3`),
   detail: (contentId: string) => get<PlaceDetail>(`/api/places/detail?contentId=${contentId}`),
   congestion: (contentId: string, date: string) =>
     get<Congestion>(`/api/congestion?contentId=${contentId}&date=${date}`),
