@@ -19,8 +19,8 @@ from .regions import _load as _rload
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 MAX_DAYS = 5
 CAND_LIMIT = 120
-FOOD_CT = ["39"]        # 음식점
-CAFE_HINT = ("카페", "커피", "베이커리", "디저트", "빵", "브런치")
+FOOD_CT = ["39"]         # 음식점(contenttypeid)
+CAFE_LCLS2 = "FD05"      # 소분류 중분류: 카페·찻집(FD0501 카페 / FD0502 찻집 / FD0503 차) — 식사와 구분
 
 # 하루 슬롯 (시각, 종류, 라벨). 종류: act=관광/쇼핑, meal=식사, cafe=카페
 SLOTS = [
@@ -55,13 +55,18 @@ def _resolve_cts(genres: list[str]) -> tuple[list[str], bool]:
     return act, food
 
 
-def _candidates(con: sqlite3.Connection, area: str, signgu: str, ctids: list[str]) -> list[dict]:
+def _candidates(con: sqlite3.Connection, area: str, signgu: str, ctids: list[str],
+                lcls2_in: str | None = None, lcls2_not: str | None = None) -> list[dict]:
     where = ["p.ldongRegnCd=?", "p.mapx<>''", "p.title<>''",
              f"p.contenttypeid IN ({','.join('?'*len(ctids))})"]
     args: list = [area, *ctids]
     if signgu:
         where.insert(1, "p.ldongSignguCd=?")
         args.insert(1, signgu[len(area):] if signgu.startswith(area) else signgu)
+    if lcls2_in:
+        where.append("p.lclsSystm2=?"); args.append(lcls2_in)
+    if lcls2_not:
+        where.append("p.lclsSystm2<>?"); args.append(lcls2_not)
     rows = con.execute(
         f"""SELECT p.contentid, p.title, p.mapx, p.mapy, p.firstimage, p.contenttypeid,
                    p.ldongRegnCd, p.lclsSystm1, p.lclsSystm2,
@@ -101,10 +106,6 @@ def _congestion(con: sqlite3.Connection, cands: list[dict], days: list[str]) -> 
     return m
 
 
-def _is_cafe(c: dict) -> bool:
-    return any(h in (c["title"] or "") for h in CAFE_HINT)
-
-
 def _mk_stop(c: dict, seq: int, time: str, label: str, kind: str, cong: float) -> dict:
     return {"seq": seq, "contentId": c["contentid"], "name": c["title"], "arrive": time,
             "label": label, "kind": kind, "lat": float(c["mapy"]), "lon": float(c["mapx"]),
@@ -116,23 +117,21 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
     act_ct, want_food = _resolve_cts(genres)
     days = _dates(start, end)
     act_pool = _candidates(con, area, signgu, act_ct)
-    food_pool = _candidates(con, area, signgu, FOOD_CT)
-    if not act_pool and not food_pool:
+    meal_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
+    cafe_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)
+    if not act_pool and not meal_pool and not cafe_pool:
         return None
-    cong = _congestion(con, act_pool + food_pool, days)
+    cong = _congestion(con, act_pool + meal_pool + cafe_pool, days)
 
     # 슬롯 구성: 식도락만 골랐어도 관광 섞고, 관광만 골랐어도 식사 자동 삽입.
     slots = list(SLOTS)
-    if not food_pool:                       # 식당 없으면 식사/카페 슬롯 제거
+    if not (meal_pool or cafe_pool):        # 식당 전무하면 식사/카페 슬롯 제거
         slots = [s for s in slots if s[1] == "act"]
 
     used: set[str] = set()
 
-    def pick(pool: list[dict], day: str, cafe=False) -> dict | None:
+    def pick(pool: list[dict], day: str) -> dict | None:
         cand = [c for c in pool if c["contentid"] not in used]
-        if cafe:
-            cafes = [c for c in cand if _is_cafe(c)]
-            cand = cafes or cand            # 카페 우선, 없으면 일반 식당
         if not cand:
             return None
         cand.sort(key=lambda c: cong[(c["contentid"], day)])   # 덜 붐비는 순
@@ -143,8 +142,10 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
         stops = []
         seq = 1
         for time, kind, label in slots:
-            pool = food_pool if kind in ("meal", "cafe") else act_pool
-            c = pick(pool, d, cafe=(kind == "cafe"))
+            pool = cafe_pool if kind == "cafe" else meal_pool if kind == "meal" else act_pool
+            if kind == "cafe" and not [c for c in pool if c["contentid"] not in used]:
+                pool = meal_pool             # 카페 없으면 식당으로 대체
+            c = pick(pool, d)
             if not c:
                 continue
             used.add(c["contentid"])
