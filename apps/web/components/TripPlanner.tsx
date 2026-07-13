@@ -4,7 +4,7 @@ import { api, type Region, type Itinerary } from "@/lib/api";
 import KakaoMap from "@/components/KakaoMap";
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const GENRE_EMOJI: Record<string, string> = { 관광지: "🏛️", 식도락: "🍜", 쇼핑: "🛍️", 레포츠: "🏄", 문화시설: "🎭" };
 
 // 향후 30일 날짜(당일~+29)

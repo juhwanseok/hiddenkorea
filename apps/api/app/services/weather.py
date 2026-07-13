@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import math
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
+
+KST = timezone(timedelta(hours=9))   # 배포 서버(UTC)에서도 한국시간 기준 발표시각 계산
 
 import httpx
 from dotenv import load_dotenv
@@ -50,7 +52,7 @@ def dfs_xy(lat: float, lon: float) -> tuple[int, int]:
 
 def _base() -> tuple[str, str]:
     """가장 최근 발표시각(0200~2300, 3시간 간격). 발표+10분 전이면 이전 회차."""
-    now = datetime.now() - timedelta(minutes=15)
+    now = datetime.now(KST) - timedelta(minutes=15)
     slots = [2, 5, 8, 11, 14, 17, 20, 23]
     h = now.hour
     chosen = max([s for s in slots if s <= h], default=None)

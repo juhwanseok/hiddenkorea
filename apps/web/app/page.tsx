@@ -7,7 +7,7 @@ import TripPlanner from "@/components/TripPlanner";
 import { getWishlist, toggleWish, removeWish, isWished, type WishItem } from "@/lib/wishlist";
 
 const TODAY = new Date();
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const plus = (n: number) => { const d = new Date(TODAY); d.setDate(d.getDate() + n); return iso(d); };
 
 export default function Home() {
