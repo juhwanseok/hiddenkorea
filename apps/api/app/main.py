@@ -60,12 +60,13 @@ def itinerary(
     areaCd: str = Query(..., description="시도 행정표준코드"),
     startDate: str = Query(..., description="YYYY-MM-DD"),
     endDate: str = Query(..., description="YYYY-MM-DD"),
-    genre: str = Query("관광지"),
+    genres: str = Query("관광지", description="장르 콤마구분 다중선택"),
     signguCd: str = Query("", description="시군구 5자리(선택)"),
 ) -> ItineraryResponse:
+    glist = [g.strip() for g in genres.split(",") if g.strip()] or ["관광지"]
     con = connect()
     try:
-        result = itin.build_itinerary(con, areaCd, signguCd, genre, startDate, endDate)
+        result = itin.build_itinerary(con, areaCd, signguCd, glist, startDate, endDate)
         if not result:
             raise HTTPException(404, "해당 지역·장르에 추천할 장소가 없습니다")
         return ItineraryResponse(**result)

@@ -92,6 +92,8 @@ class ItineraryStop(BaseModel):
     contentId: str
     name: str
     arrive: str
+    label: str = ""          # 오전 관광 / 점심 / 카페·디저트 / 저녁 등
+    kind: str = "act"        # act | meal | cafe
     lat: float
     lon: float
     congestion: float

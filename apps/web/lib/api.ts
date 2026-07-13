@@ -30,6 +30,7 @@ export type Course = {
 export type Region = { code: string; name: string };
 export type ItineraryStop = {
   seq: number; contentId: string; name: string; arrive: string;
+  label: string; kind: "act" | "meal" | "cafe";
   lat: number; lon: number; congestion: number; image?: string | null;
 };
 export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; stops: ItineraryStop[] };
@@ -55,6 +56,6 @@ export const api = {
     get<Course>(`/api/course?poiIds=${poiIds.join(",")}&date=${date}`),
   regions: (areaCd?: string) => get<Region[]>(`/api/regions${areaCd ? `?areaCd=${areaCd}` : ""}`),
   genres: () => get<string[]>(`/api/genres`),
-  itinerary: (areaCd: string, startDate: string, endDate: string, genre: string, signguCd = "") =>
-    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genre=${encodeURIComponent(genre)}${signguCd ? `&signguCd=${signguCd}` : ""}`),
+  itinerary: (areaCd: string, startDate: string, endDate: string, genres: string[], signguCd = "") =>
+    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genres=${encodeURIComponent(genres.join(","))}${signguCd ? `&signguCd=${signguCd}` : ""}`),
 };

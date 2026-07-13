@@ -42,7 +42,7 @@ export default function TripPlanner() {
   const [genres, setGenres] = useState<string[]>([]);
   const [area, setArea] = useState("");
   const [sgu, setSgu] = useState("");
-  const [genre, setGenre] = useState("관광지");
+  const [picked, setPicked] = useState<string[]>(["관광지"]);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [plan, setPlan] = useState<Itinerary | null>(null);
@@ -56,10 +56,13 @@ export default function TripPlanner() {
     else setSigungu([]);
   }, [area]);
 
+  const toggleGenre = (g: string) =>
+    setPicked((p) => p.includes(g) ? (p.length > 1 ? p.filter((x) => x !== g) : p) : [...p, g]);
+
   const gen = async () => {
     if (!area || !start) { setErr("지역과 기간(시작일)을 선택하세요"); return; }
     setLoading(true); setErr(null); setPlan(null);
-    try { setPlan(await api.itinerary(area, start, end || start, genre, sgu)); }
+    try { setPlan(await api.itinerary(area, start, end || start, picked, sgu)); }
     catch (e) { setErr(String(e)); } finally { setLoading(false); }
   };
 
@@ -79,14 +82,20 @@ export default function TripPlanner() {
         </select>
       </div>
 
-      {/* 장르 */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {genres.map((g) => (
-          <button key={g} onClick={() => setGenre(g)}
-            className={`rounded-full px-3 py-1.5 text-sm transition ${genre === g ? "bg-teal-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-            {GENRE_EMOJI[g] || ""} {g}
-          </button>
-        ))}
+      {/* 장르 (다중 선택) */}
+      <div className="mt-3">
+        <div className="flex flex-wrap gap-2">
+          {genres.map((g) => {
+            const on = picked.includes(g);
+            return (
+              <button key={g} onClick={() => toggleGenre(g)}
+                className={`rounded-full px-3 py-1.5 text-sm transition ${on ? "bg-teal-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+                {GENRE_EMOJI[g] || ""} {g}{on ? " ✓" : ""}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-400">여러 개 선택 가능 · 식사·카페는 자동으로 알맞은 시간에 넣어드려요</p>
       </div>
 
       {/* 기간 달력 */}
@@ -114,16 +123,22 @@ export default function TripPlanner() {
                   <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: gradeColor(d.avgCongestion) }}>평균 혼잡 {d.avgCongestion}</span>
                 </div>
                 <KakaoMap stops={d.stops.map((s) => ({ seq: s.seq, name: s.name, lat: s.lat, lon: s.lon }))} />
-                <ol className="mt-2 space-y-1.5">
-                  {d.stops.map((s) => (
-                    <li key={s.contentId} className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-[10px] text-white">{s.seq}</span>
-                      {s.image ? <img src={s.image} alt="" className="h-9 w-9 rounded object-cover" /> : <div className="h-9 w-9 rounded bg-slate-100" />}
-                      <span className="text-sm">{s.arrive} <b>{s.name}</b>
-                        <span className="ml-1 rounded px-1 text-[10px] text-white" style={{ background: gradeColor(s.congestion) }}>혼잡 {s.congestion}</span>
-                      </span>
-                    </li>
-                  ))}
+                <ol className="mt-2 space-y-2">
+                  {d.stops.map((s) => {
+                    const icon = s.kind === "meal" ? (s.label === "점심" ? "🍚" : "🍽️") : s.kind === "cafe" ? "☕" : "📍";
+                    const isFood = s.kind !== "act";
+                    return (
+                      <li key={s.contentId} className="flex items-center gap-2">
+                        <span className="w-11 shrink-0 text-right text-xs font-semibold text-slate-500">{s.arrive}</span>
+                        {s.image ? <img src={s.image} alt="" className="h-10 w-10 shrink-0 rounded object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-slate-100 text-base">{icon}</div>}
+                        <span className="text-sm">
+                          <span className={`mr-1 rounded px-1 py-0.5 text-[10px] ${isFood ? "bg-amber-100 text-amber-700" : "bg-teal-100 text-teal-700"}`}>{icon} {s.label}</span>
+                          <b>{s.name}</b>
+                          {!isFood && <span className="ml-1 rounded px-1 text-[10px] text-white" style={{ background: gradeColor(s.congestion) }}>혼잡 {s.congestion}</span>}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             ))}
