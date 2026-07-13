@@ -1,0 +1,19 @@
+# 백엔드 이미지에 불필요한 것 제외 (이미지 경량화)
+apps/web
+ml
+pipelines
+docs
+node_modules
+**/node_modules
+**/.next
+.venv
+venv
+__pycache__
+**/__pycache__
+*.log
+.git
+# data는 Dockerfile에서 필요한 파일만 명시적으로 COPY (여기서 통째 제외해도 무방하나 명시 COPY라 유지)
+data/d2_scan.log
+data/goldset.jsonl
+data/d2_spots.csv
+data/d2_coverage.json

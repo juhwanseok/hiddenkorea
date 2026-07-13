@@ -24,6 +24,12 @@ data/embeddings.npz
 data/congestion_gap_model.txt
 data/congestion_gap_meta.json
 
+# 단, 배포(Railway)에 필요한 산출물은 예외로 추적
+!data/hiddenkorea.db
+!data/embeddings.npz
+!data/congestion_gap_model.txt
+!data/congestion_gap_meta.json
+
 # misc
 .DS_Store
 Thumbs.db
