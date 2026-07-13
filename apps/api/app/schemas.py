@@ -13,6 +13,15 @@ class WeatherInfo(BaseModel):
     note: str | None = None
 
 
+class RealtimeInfo(BaseModel):
+    area: str
+    level: str                 # 여유 | 보통 | 약간 붐빔 | 붐빔
+    msg: str | None = None
+    min: str | None = None
+    max: str | None = None
+    time: str | None = None
+
+
 class DayCongestion(BaseModel):
     date: str          # YYYY-MM-DD
     index: float       # 0~100 혼잡 지수
@@ -31,6 +40,7 @@ class CongestionResponse(BaseModel):
     source: str        # KTO_FORECAST | HK_MODEL
     note: str | None = None
     weather: WeatherInfo | None = None
+    realtime: RealtimeInfo | None = None
     series30d: list[DayCongestion]
 
 

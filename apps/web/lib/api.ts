@@ -6,11 +6,12 @@ export type PlaceHit = {
   contentTypeId: string; image?: string | null; lat?: number | null; lon?: number | null;
 };
 export type WeatherInfo = { label: string; emoji: string; tmp?: number | null; rain: boolean; indoorPref: boolean; note?: string | null };
+export type RealtimeInfo = { area: string; level: string; msg?: string | null; min?: string | null; max?: string | null; time?: string | null };
 export type DayCongestion = { date: string; index: number; grade: string; color: string };
 export type Congestion = {
   contentId?: string; name: string; signguCd: string; date: string;
   index: number; grade: string; color: string; source: string;
-  note?: string | null; weather?: WeatherInfo | null; series30d: DayCongestion[];
+  note?: string | null; weather?: WeatherInfo | null; realtime?: RealtimeInfo | null; series30d: DayCongestion[];
 };
 export type Alternative = {
   contentId: string; name: string; addr?: string | null; region?: string | null; hiddenScore: number;

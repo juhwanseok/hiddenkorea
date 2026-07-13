@@ -23,6 +23,7 @@ from .services import itinerary as itin
 from .services import matching
 from .services import regions as regions_svc
 from .services import weather as weather_svc
+from .services import realtime as realtime_svc
 from .services.details import get_detail
 from .services.reason import llm_reason
 
@@ -217,6 +218,8 @@ def congestion(
             result["weather"] = weather_svc.for_date(float(poi["mapy"]), float(poi["mapx"]), date)
         except (TypeError, ValueError):
             result["weather"] = None
+        # 서울 주요 관광지 실시간 혼잡(citydata) — 예측과 병기
+        result["realtime"] = realtime_svc.for_poi(poi["title"], poi["ldongRegnCd"] or "")
         return CongestionResponse(**result)
     finally:
         con.close()
