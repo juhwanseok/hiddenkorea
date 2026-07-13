@@ -15,9 +15,9 @@ function loadSdk(): Promise<void> {
     if (exist) { exist.addEventListener("load", onload); return; }
     const s = document.createElement("script");
     s.id = SDK_ID; s.async = true;
-    s.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KEY}&autoload=false`;
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KEY}&autoload=false`;
     s.onload = onload;
-    s.onerror = () => reject(new Error("Kakao SDK 로드 실패"));
+    s.onerror = () => reject(new Error("Kakao SDK 로드 실패 (도메인 등록·키 확인)"));
     document.head.appendChild(s);
   });
 }
