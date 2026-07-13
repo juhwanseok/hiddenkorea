@@ -173,8 +173,14 @@ export default function Home() {
               {cong.grade} {cong.index}
             </span>
             <span className="text-xs text-slate-500">{date} · {cong.source === "KTO_FORECAST" ? "공사 예측" : "숨은한국 AI 추정"}</span>
+            {cong.weather && (
+              <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">
+                {cong.weather.emoji} {cong.weather.label}{cong.weather.tmp != null ? ` ${cong.weather.tmp}°` : ""}
+              </span>
+            )}
           </div>
           {cong.note && <p className="mt-1 text-xs text-amber-600">{cong.note}</p>}
+          {cong.weather?.note && <p className="mt-1 text-xs text-sky-600">☔ {cong.weather.note}</p>}
 
           {/* 이곳에서 무엇을 할 수 있는지 */}
           {detail?.overview && (

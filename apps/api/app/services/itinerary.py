@@ -14,7 +14,10 @@ from datetime import datetime, timedelta
 
 from ..core.constants import GENRES
 from . import gap_model
+from . import weather as weather_svc
 from .regions import _load as _rload
+
+INDOOR_CT = ["14"]       # 문화시설(박물관·미술관·전시 등 = 실내). 악천후 시 우선
 
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 MAX_DAYS = 5
@@ -119,9 +122,16 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
     act_pool = _candidates(con, area, signgu, act_ct)
     meal_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
     cafe_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)
+    indoor_pool = _candidates(con, area, signgu, INDOOR_CT)                     # 문화시설(악천후 실내 대안)
     if not act_pool and not meal_pool and not cafe_pool:
         return None
-    cong = _congestion(con, act_pool + meal_pool + cafe_pool, days)
+    cong = _congestion(con, act_pool + meal_pool + cafe_pool + indoor_pool, days)
+
+    # 지역 대표 좌표(날씨 조회용) — 후보 좌표 평균
+    coords = [(float(c["mapy"]), float(c["mapx"])) for c in (act_pool or meal_pool)[:20]
+              if c["mapy"] and c["mapx"]]
+    rep_lat = sum(a for a, _ in coords) / len(coords) if coords else None
+    rep_lon = sum(o for _, o in coords) / len(coords) if coords else None
 
     # 슬롯 구성: 식도락만 골랐어도 관광 섞고, 관광만 골랐어도 식사 자동 삽입.
     slots = list(SLOTS)
@@ -130,22 +140,30 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
 
     used: set[str] = set()
 
-    def pick(pool: list[dict], day: str) -> dict | None:
-        cand = [c for c in pool if c["contentid"] not in used]
-        if not cand:
-            return None
-        cand.sort(key=lambda c: cong[(c["contentid"], day)])   # 덜 붐비는 순
-        return cand[0]
+    def pick(pools: list[list[dict]], day: str) -> dict | None:
+        """우선순위 풀 순서대로 사용 가능한 후보 중 덜 붐비는 곳."""
+        for pool in pools:
+            cand = [c for c in pool if c["contentid"] not in used]
+            if cand:
+                cand.sort(key=lambda c: cong[(c["contentid"], day)])
+                return cand[0]
+        return None
 
     day_plans = []
     for d in days:
-        stops = []
-        seq = 1
+        w = weather_svc.for_date(rep_lat, rep_lon, d) if rep_lat is not None else None
+        indoor = bool(w and w["indoorPref"])
+        # 악천후일: 관광 슬롯은 실내(문화시설) 우선, 없으면 원래 관광 풀
+        act_pools = ([indoor_pool, act_pool] if indoor and indoor_pool else [act_pool])
+        stops, seq = [], 1
         for time, kind, label in slots:
-            pool = cafe_pool if kind == "cafe" else meal_pool if kind == "meal" else act_pool
-            if kind == "cafe" and not [c for c in pool if c["contentid"] not in used]:
-                pool = meal_pool             # 카페 없으면 식당으로 대체
-            c = pick(pool, d)
+            if kind == "cafe":
+                pools = [cafe_pool, meal_pool]     # 카페 없으면 식당 대체
+            elif kind == "meal":
+                pools = [meal_pool]
+            else:
+                pools = act_pools
+            c = pick(pools, d)
             if not c:
                 continue
             used.add(c["contentid"])
@@ -154,7 +172,7 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
         act_stops = [s for s in stops if s["kind"] == "act"]
         avg = round(sum(s["congestion"] for s in act_stops) / len(act_stops), 1) if act_stops else 0.0
         wd = WD[datetime.strptime(d, "%Y-%m-%d").weekday()]
-        day_plans.append({"date": d, "weekday": wd, "avgCongestion": avg, "stops": stops})
+        day_plans.append({"date": d, "weekday": wd, "avgCongestion": avg, "weather": w, "stops": stops})
 
     rl = _rload()
     area_nm = rl["sido"].get(area, area)

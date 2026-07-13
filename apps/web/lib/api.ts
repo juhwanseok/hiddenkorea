@@ -5,11 +5,12 @@ export type PlaceHit = {
   contentId: string; title: string; addr?: string | null;
   contentTypeId: string; image?: string | null; lat?: number | null; lon?: number | null;
 };
+export type WeatherInfo = { label: string; emoji: string; tmp?: number | null; rain: boolean; indoorPref: boolean; note?: string | null };
 export type DayCongestion = { date: string; index: number; grade: string; color: string };
 export type Congestion = {
   contentId?: string; name: string; signguCd: string; date: string;
   index: number; grade: string; color: string; source: string;
-  note?: string | null; series30d: DayCongestion[];
+  note?: string | null; weather?: WeatherInfo | null; series30d: DayCongestion[];
 };
 export type Alternative = {
   contentId: string; name: string; addr?: string | null; region?: string | null; hiddenScore: number;
@@ -35,7 +36,7 @@ export type ItineraryStop = {
   label: string; kind: "act" | "meal" | "cafe";
   lat: number; lon: number; congestion: number; image?: string | null;
 };
-export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; stops: ItineraryStop[] };
+export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; weather?: WeatherInfo | null; stops: ItineraryStop[] };
 export type Itinerary = {
   areaName: string; signguName?: string | null; genre: string;
   startDate: string; endDate: string; days: ItineraryDay[];

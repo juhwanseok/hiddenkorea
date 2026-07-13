@@ -22,6 +22,7 @@ from .services import course as course_svc
 from .services import itinerary as itin
 from .services import matching
 from .services import regions as regions_svc
+from .services import weather as weather_svc
 from .services.details import get_detail
 from .services.reason import llm_reason
 
@@ -192,7 +193,7 @@ def congestion(
     con = connect()
     try:
         poi = con.execute(
-            "SELECT title, ldongRegnCd, ldongSignguCd, lclsSystm1, lclsSystm2 "
+            "SELECT title, ldongRegnCd, ldongSignguCd, lclsSystm1, lclsSystm2, mapx, mapy "
             "FROM places WHERE contentid=?", (contentId,)
         ).fetchone()
         if not poi:
@@ -201,12 +202,16 @@ def congestion(
         spot = cong.resolve_spot(con, contentId)
         if spot:
             result = cong.congestion_by_spot(con, spot["signguCd"], spot["tAtsNm"], date, contentId)
-            if result:
-                return CongestionResponse(**result)
-        # 미커버 → ML 갭모델 폴백
-        return CongestionResponse(**cong.congestion_fallback(
-            con, signgu, poi["title"], date, contentId,
-            area=poi["ldongRegnCd"] or "", lcls1=poi["lclsSystm1"] or "", lcls2=poi["lclsSystm2"] or ""))
+        else:  # 미커버 → ML 갭모델 폴백
+            result = cong.congestion_fallback(
+                con, signgu, poi["title"], date, contentId,
+                area=poi["ldongRegnCd"] or "", lcls1=poi["lclsSystm1"] or "", lcls2=poi["lclsSystm2"] or "")
+        # 날씨 연동(예보창 내 날짜만)
+        try:
+            result["weather"] = weather_svc.for_date(float(poi["mapy"]), float(poi["mapx"]), date)
+        except (TypeError, ValueError):
+            result["weather"] = None
+        return CongestionResponse(**result)
     finally:
         con.close()
 

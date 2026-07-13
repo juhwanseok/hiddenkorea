@@ -4,6 +4,15 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class WeatherInfo(BaseModel):
+    label: str
+    emoji: str
+    tmp: float | None = None
+    rain: bool = False
+    indoorPref: bool = False
+    note: str | None = None
+
+
 class DayCongestion(BaseModel):
     date: str          # YYYY-MM-DD
     index: float       # 0~100 혼잡 지수
@@ -21,6 +30,7 @@ class CongestionResponse(BaseModel):
     color: str
     source: str        # KTO_FORECAST | HK_MODEL
     note: str | None = None
+    weather: WeatherInfo | None = None
     series30d: list[DayCongestion]
 
 
@@ -119,6 +129,7 @@ class ItineraryDay(BaseModel):
     date: str
     weekday: str
     avgCongestion: float
+    weather: WeatherInfo | None = None
     stops: list[ItineraryStop]
 
 

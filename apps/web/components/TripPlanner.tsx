@@ -120,8 +120,12 @@ export default function TripPlanner() {
               <div key={d.date} className="rounded-xl border border-slate-200 p-3 shadow-sm">
                 <div className="flex items-center justify-between">
                   <b className="text-sm">Day {i + 1} · {d.date}({d.weekday})</b>
-                  <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: gradeColor(d.avgCongestion) }}>평균 혼잡 {d.avgCongestion}</span>
+                  <span className="flex items-center gap-1">
+                    {d.weather && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700">{d.weather.emoji} {d.weather.label}{d.weather.tmp != null ? ` ${d.weather.tmp}°` : ""}</span>}
+                    <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: gradeColor(d.avgCongestion) }}>평균 혼잡 {d.avgCongestion}</span>
+                  </span>
                 </div>
+                {d.weather?.note && <p className="mt-1 text-[11px] text-sky-600">☔ {d.weather.note}</p>}
                 <KakaoMap stops={d.stops.map((s) => ({ seq: s.seq, name: s.name, lat: s.lat, lon: s.lon }))} />
                 <ol className="mt-2 space-y-2">
                   {d.stops.map((s) => {
