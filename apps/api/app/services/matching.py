@@ -50,6 +50,7 @@ class Index:
         self.lon = np.array([f(g(c, "mapx")) for c in self.ids])
         self.lat = np.array([f(g(c, "mapy")) for c in self.ids])
         self.signgu = [g(c, "ldongRegnCd") + g(c, "ldongSignguCd") for c in self.ids]
+        self.regn = np.array([g(c, "ldongRegnCd") for c in self.ids])   # 시도코드(타지역 대안용)
         self.title = [g(c, "title") for c in self.ids]
         self.addr = [g(c, "addr1") for c in self.ids]
         self.lcls1 = np.array([g(c, "lclsSystm1") for c in self.ids])
@@ -141,3 +142,64 @@ def alternatives(content_id: str, date_iso: str, k: int = 3, weights: dict | Non
         })
     out.sort(key=lambda x: -x["hiddenScore"])
     return out[:k]
+
+
+# 타지역(전국) 대안 가중치: 거리 무시, 유사도+비혼잡 위주
+W_NATION = {"sim": 0.5, "cong": 0.4, "qual": 0.1}
+
+
+def alternatives_nationwide(content_id: str, date_iso: str, k: int = 3) -> list[dict]:
+    """전국에서 '비슷한 느낌인데 더 한적한 다른 지역' 명소. 같은 시도 제외, 지역 다양성 보장."""
+    from .regions import _load as rload
+    sido = rload()["sido"]
+    idx = get_index()
+    if content_id not in idx.pos:
+        return []
+    i = idx.pos[content_id]
+    origin_regn = idx.regn[i]
+
+    # 느낌 매칭: 소분류(lclsSystm3) 우선, 없으면 중분류
+    if idx.lcls3[i]:
+        cand = np.where(idx.lcls3 == idx.lcls3[i])[0]
+    elif idx.lcls2[i]:
+        cand = np.where(idx.lcls2 == idx.lcls2[i])[0]
+    else:
+        return []
+    cand = cand[(idx.regn[cand] != origin_regn) & (idx.regn[cand] != "")]  # 다른 시도만
+    if len(cand) == 0:
+        return []
+    sims = idx.vecs[cand] @ idx.vecs[i]
+    dist = _haversine(idx.lat[i], idx.lon[i], idx.lat[cand], idx.lon[cand])
+
+    date_ymd = date_iso.replace("-", "")
+    con = connect()
+    cong = _cong_on_date(con, date_ymd)
+    con.close()
+
+    origin_title = idx.title[i]
+    scored = []
+    for pos_c, j in enumerate(cand):
+        name = idx.title[j]
+        if any(b in name for b in ALT_NAME_BLOCK) or (origin_title and origin_title in name):
+            continue
+        cid = idx.ids[j]
+        c_idx = cong.get(cid, 45.0)
+        if c_idx >= ALT_EXCLUDE_INDEX:                    # 붐비는 곳 제외 (핵심: '더 한적한')
+            continue
+        sim = float(sims[pos_c])
+        score = W_NATION["sim"] * sim + W_NATION["cong"] * (1 - c_idx / 100) + W_NATION["qual"] * float(idx.img[j])
+        scored.append({
+            "contentId": cid, "name": name, "addr": idx.addr[j],
+            "region": sido.get(idx.regn[j], idx.regn[j]),
+            "hiddenScore": round(score, 4), "simPct": round(sim * 100, 1),
+            "congestion": round(c_idx, 1), "distanceKm": round(float(dist[pos_c]), 1),
+            "_regn": idx.regn[j],
+        })
+    # 지역 다양성: 시도별 최고 1곳만 → 서로 다른 지역 k곳
+    best_by_regn: dict[str, dict] = {}
+    for s in sorted(scored, key=lambda x: -x["hiddenScore"]):
+        best_by_regn.setdefault(s["_regn"], s)
+    picks = sorted(best_by_regn.values(), key=lambda x: -x["hiddenScore"])[:k]
+    for p in picks:
+        p.pop("_regn", None)
+    return picks

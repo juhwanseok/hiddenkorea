@@ -17,6 +17,7 @@ export default function Home() {
   const [cong, setCong] = useState<Congestion | null>(null);
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [alts, setAlts] = useState<Alternatives | null>(null);
+  const [nationAlts, setNationAlts] = useState<Alternatives | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -39,14 +40,14 @@ export default function Home() {
   };
   const reset = () => {
     setQ(""); setHits([]); setSel(null); setCong(null); setDetail(null);
-    setAlts(null); setCourse(null); setPicked({}); setErr(null); setMode("place");
+    setAlts(null); setNationAlts(null); setCourse(null); setPicked({}); setErr(null); setMode("place");
   };
   const doSearch = () => run("search", async () => {
     setSel(null); setCong(null); setDetail(null); setAlts(null); setCourse(null);
     setHits(await api.search(q));
   });
   const pickPlace = (p: PlaceHit) => run("cong", async () => {
-    setSel(p); setAlts(null); setCourse(null); setPicked({}); setDetail(null); setFocused(false);
+    setSel(p); setAlts(null); setNationAlts(null); setCourse(null); setPicked({}); setDetail(null); setFocused(false);
     setCong(await api.congestion(p.contentId, date));
     api.detail(p.contentId).then(setDetail).catch(() => {});
   });
@@ -60,7 +61,10 @@ export default function Home() {
     setDate(d);
     if (sel) run("cong", async () => setCong(await api.congestion(sel.contentId, d)));
   };
-  const findAlts = () => sel && run("alts", async () => setAlts(await api.alternatives(sel.contentId, date, 3)));
+  const findAlts = () => sel && run("alts", async () => {
+    setAlts(await api.alternatives(sel.contentId, date, 3, "nearby"));
+    api.alternatives(sel.contentId, date, 3, "nationwide").then(setNationAlts).catch(() => setNationAlts(null));
+  });
   const makeCourse = () => run("course", async () => {
     setCourse(await api.course([sel!.contentId, ...Object.keys(picked)], date));
   });
@@ -217,6 +221,28 @@ export default function Home() {
             <button onClick={makeCourse} className="mt-4 w-full rounded-lg bg-teal-700 py-2 font-semibold text-white transition hover:bg-teal-800 active:scale-95">
               {sel?.title} + {Object.keys(picked).length}곳으로 코스 만들기
             </button>
+          )}
+
+          {/* 다른 지역은 어떠세요? — 전국에서 비슷한 느낌+더 한적한 곳 */}
+          {nationAlts && nationAlts.alternatives.length > 0 && (
+            <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+              <h4 className="font-semibold text-teal-800">🌏 다른 지역은 어떠세요?</h4>
+              <p className="mb-3 text-xs text-slate-500">{sel?.title}와(과) 비슷한 느낌인데, 다른 지역이라 더 한적한 곳이에요.</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {nationAlts.alternatives.map((a) => (
+                  <div key={a.contentId} className="flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <span className="mb-0.5 w-fit rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-semibold text-white">{a.region}</span>
+                    <b className="text-sm">{a.name}</b>
+                    {a.overview && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">{a.overview}</p>}
+                    <p className="mt-2 text-[11px] text-slate-500">유사도 {a.simPct}% · 혼잡 {a.congestion} · {a.distanceKm}km</p>
+                    <button onClick={() => pickById(a.contentId, a.name)}
+                      className="mt-2 w-full rounded border border-teal-500 py-1 text-xs text-teal-700 transition hover:bg-teal-50">
+                      이 곳 예보 보기
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </section>
       )}

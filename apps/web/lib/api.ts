@@ -12,7 +12,7 @@ export type Congestion = {
   note?: string | null; series30d: DayCongestion[];
 };
 export type Alternative = {
-  contentId: string; name: string; addr?: string | null; hiddenScore: number;
+  contentId: string; name: string; addr?: string | null; region?: string | null; hiddenScore: number;
   simPct: number; congestion: number; distanceKm: number; reason: string; overview?: string | null;
 };
 export type PlaceDetail = {
@@ -54,8 +54,8 @@ export const api = {
   detail: (contentId: string) => get<PlaceDetail>(`/api/places/detail?contentId=${contentId}`),
   congestion: (contentId: string, date: string) =>
     get<Congestion>(`/api/congestion?contentId=${contentId}&date=${date}`),
-  alternatives: (contentId: string, date: string, k = 3) =>
-    get<Alternatives>(`/api/alternatives?contentId=${contentId}&date=${date}&k=${k}`),
+  alternatives: (contentId: string, date: string, k = 3, scope: "nearby" | "nationwide" = "nearby") =>
+    get<Alternatives>(`/api/alternatives?contentId=${contentId}&date=${date}&k=${k}&scope=${scope}`),
   course: (poiIds: string[], date: string) =>
     get<Course>(`/api/course?poiIds=${poiIds.join(",")}&date=${date}`),
   regions: (areaCd?: string) => get<Region[]>(`/api/regions${areaCd ? `?areaCd=${areaCd}` : ""}`),

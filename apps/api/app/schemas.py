@@ -35,6 +35,7 @@ class Alternative(BaseModel):
     contentId: str
     name: str
     addr: str | None = None
+    region: str | None = None      # 시도명 (타지역 대안 표시용)
     hiddenScore: float
     simPct: float
     congestion: float

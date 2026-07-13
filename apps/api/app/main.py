@@ -216,15 +216,17 @@ def alternatives(
     contentId: str = Query(..., description="원본 POI contentid"),
     date: str = Query(..., description="YYYY-MM-DD"),
     k: int = Query(3, ge=1, le=10),
+    scope: str = Query("nearby", description="nearby(인근) | nationwide(전국 타지역)"),
 ) -> AlternativesResponse:
     con = connect()
     try:
         origin = con.execute("SELECT title FROM places WHERE contentid=?", (contentId,)).fetchone()
         if not origin:
             raise HTTPException(404, "존재하지 않는 contentId")
-        alts = matching.alternatives(contentId, date, k=k)
+        alts = (matching.alternatives_nationwide(contentId, date, k=k) if scope == "nationwide"
+                else matching.alternatives(contentId, date, k=k))
         if not alts:
-            raise HTTPException(422, "대안 후보 없음(임베딩 풀 밖이거나 인근 대안 부재)")
+            raise HTTPException(422, "대안 후보 없음(임베딩 풀 밖이거나 대안 부재)")
         for a in alts:
             a["reason"] = llm_reason(origin["title"], "", a, a.get("addr") or "")
             ov = get_detail(con, a["contentId"]).get("overview") or ""
