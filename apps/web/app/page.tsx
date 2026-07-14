@@ -4,7 +4,6 @@ import { api, type PlaceHit, type Congestion, type Alternatives, type Course, ty
 import KakaoMap from "@/components/KakaoMap";
 import HeatCalendar from "@/components/HeatCalendar";
 import TripPlanner from "@/components/TripPlanner";
-import { getWishlist, toggleWish, removeWish, isWished, type WishItem } from "@/lib/wishlist";
 
 const TODAY = new Date();
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -24,14 +23,11 @@ export default function Home() {
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [mode, setMode] = useState<"place" | "trip">("place");
-  const [wish, setWish] = useState<WishItem[]>([]);
-  const [showWish, setShowWish] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [popular, setPopular] = useState<PlaceHit[]>([]);
 
-  // 마운트: 위시리스트 로드 + 공유 URL 복원(?place=&date= 또는 ?course=&date=)
+  // 마운트: 공유 URL 복원(?place=&date= 또는 ?course=&date=)
   useEffect(() => {
-    setWish(getWishlist());
     const p = new URLSearchParams(window.location.search);
     const d = p.get("date");
     if (d) setDate(d);
@@ -52,12 +48,6 @@ export default function Home() {
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 1800); };
   const copy = (url: string, label: string) => {
     navigator.clipboard?.writeText(url).then(() => flash(`${label} 링크가 복사됐어요`)).catch(() => flash("복사 실패"));
-  };
-  const toggleWishItem = (it: WishItem) => { setWish(toggleWish(it)); };
-  const makeCourseFromWish = () => {
-    if (wish.length < 2) { flash("코스는 2곳 이상 필요해요"); return; }
-    setShowWish(false); setMode("place"); setSel(null); setCong(null); setAlts(null);
-    run("course", async () => setCourse(await api.course(wish.map((w) => w.contentId), date)));
   };
   const [focused, setFocused] = useState(false);
   const [highlights, setHighlights] = useState<HighlightRegion[]>([]);
@@ -109,47 +99,15 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-slate-800">
-      <header className="mb-6 flex items-start justify-between">
-        <div>
-          <button onClick={reset}
-            className="cursor-pointer text-2xl font-bold text-teal-600 transition-colors hover:text-teal-800">
-            숨은한국
-          </button>
-          <p className="text-sm text-slate-500">붐비는 곳 말고, 숨은 한국 — 혼잡 예측 기반 여행 추천</p>
-        </div>
-        <button onClick={() => setShowWish((v) => !v)} className="relative rounded-lg border border-slate-300 px-3 py-1.5 text-sm transition hover:bg-rose-50">
-          ♥ 찜{wish.length > 0 && <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-xs text-white">{wish.length}</span>}
+      <header className="mb-6">
+        <button onClick={reset}
+          className="cursor-pointer text-2xl font-bold text-teal-600 transition-colors hover:text-teal-800">
+          숨은한국
         </button>
+        <p className="text-sm text-slate-500">붐비는 곳 말고, 숨은 한국 — 혼잡 예측 기반 여행 추천</p>
       </header>
 
-      {/* 위시리스트 패널 */}
-      {showWish && (
-        <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
-          <div className="flex items-center justify-between">
-            <b className="text-sm">내가 찜한 곳 {wish.length}</b>
-            <button onClick={() => setShowWish(false)} className="text-xs text-slate-400">닫기</button>
-          </div>
-          {wish.length === 0 ? (
-            <p className="mt-2 text-xs text-slate-500">명소의 ♥ 를 눌러 담아보세요. 담은 곳들로 한 번에 코스를 만들 수 있어요.</p>
-          ) : (
-            <>
-              <ul className="mt-2 divide-y">
-                {wish.map((w) => (
-                  <li key={w.contentId} className="flex items-center gap-2 py-1.5">
-                    {w.image ? <img src={w.image} alt="" className="h-8 w-8 rounded object-cover" /> : <div className="h-8 w-8 rounded bg-slate-100" />}
-                    <button onClick={() => { setShowWish(false); pickById(w.contentId, w.title); }} className="flex-1 text-left text-sm hover:text-teal-700">{w.title}</button>
-                    <button onClick={() => setWish(removeWish(w.contentId))} className="text-xs text-slate-400 hover:text-rose-500">삭제</button>
-                  </li>
-                ))}
-              </ul>
-              <button onClick={makeCourseFromWish} className="mt-3 w-full rounded-lg bg-teal-700 py-2 text-sm font-semibold text-white transition hover:bg-teal-800">
-                찜한 {wish.length}곳으로 코스 만들기
-              </button>
-            </>
-          )}
-        </div>
-      )}
-      {toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
+      {toast &&<div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
 
       {/* 탭 */}
       <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -239,8 +197,6 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">{cong.name}</h2>
             <div className="flex items-center gap-2">
-              <button onClick={() => toggleWishItem({ contentId: cong.contentId!, title: cong.name, image: sel?.image })}
-                className={`text-sm ${isWished(cong.contentId || "") ? "text-rose-500" : "text-slate-400 hover:text-rose-500"}`}>♥</button>
               <button onClick={() => copy(`${location.origin}/?place=${cong.contentId}&date=${date}`, "예보")}
                 className="text-xs text-slate-400 transition hover:text-teal-600">🔗 공유</button>
               <button onClick={reset} className="text-xs text-slate-400 transition hover:text-slate-600">← 처음으로</button>
@@ -295,11 +251,7 @@ export default function Home() {
               const on = a.contentId in picked;
               return (
                 <div key={a.contentId} className={`flex flex-col rounded-xl border border-slate-200 p-3 shadow-sm transition hover:shadow-md ${on ? "ring-2 ring-teal-600" : ""}`}>
-                  <div className="flex items-start justify-between">
-                    <b className="text-sm">{a.name}</b>
-                    <button onClick={() => toggleWishItem({ contentId: a.contentId, title: a.name })}
-                      className={`text-sm ${isWished(a.contentId) ? "text-rose-500" : "text-slate-300 hover:text-rose-500"}`}>♥</button>
-                  </div>
+                  <b className="text-sm">{a.name}</b>
                   <p className="mt-1 text-xs text-teal-700">{a.reason}</p>
                   {a.overview && <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-slate-500">{a.overview}</p>}
                   <p className="mt-2 text-[11px] text-slate-500">유사도 {a.simPct}% · 혼잡 {a.congestion} · {a.distanceKm}km</p>
