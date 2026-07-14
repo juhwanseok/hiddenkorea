@@ -4,6 +4,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# LightGBM 런타임 의존성(OpenMP). slim 이미지엔 기본 미포함 → 없으면 gap_model import 실패.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # 의존성 먼저(캐시)
 COPY apps/api/requirements.txt ./apps/api/requirements.txt
 RUN pip install --no-cache-dir -r apps/api/requirements.txt

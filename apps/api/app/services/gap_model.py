@@ -21,12 +21,15 @@ _META = _DATA / "congestion_gap_meta.json"
 @lru_cache(maxsize=1)
 def _load():
     import json
-    import lightgbm as lgb
-    if not (_MODEL.exists() and _META.exists()):
+    try:
+        import lightgbm as lgb  # libgomp1 미설치 등으로 실패 가능 → 폴백
+        if not (_MODEL.exists() and _META.exists()):
+            return None
+        meta = json.loads(_META.read_text(encoding="utf-8"))
+        booster = lgb.Booster(model_str=_MODEL.read_text(encoding="utf-8"))
+        return booster, meta
+    except Exception:  # noqa: BLE001 - 모델 미가용 시 호출측이 시군구 평균으로 폴백
         return None
-    meta = json.loads(_META.read_text(encoding="utf-8"))
-    booster = lgb.Booster(model_str=_MODEL.read_text(encoding="utf-8"))
-    return booster, meta
 
 
 def available() -> bool:
