@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import math
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -58,15 +59,23 @@ def _resolve_cts(genres: list[str]) -> tuple[list[str], bool]:
     return act, food
 
 
-def _candidates(con: sqlite3.Connection, area: str, signgu: str, ctids: list[str],
+def _sgu_code(area: str, sg: str) -> str:
+    """전달된 시군구코드가 시도+시군구(예: 11110) 형태면 시군구부(110/11110→11110 저장형)로 정규화."""
+    return sg[len(area):] if sg.startswith(area) and len(sg) > len(area) else sg
+
+
+def _candidates(con: sqlite3.Connection, area: str, signgus: list[str], ctids: list[str],
                 lcls2_in: str | None = None, lcls2_not: str | None = None,
                 lcls3_in: list[str] | None = None) -> list[dict]:
     where = ["p.ldongRegnCd=?", "p.mapx<>''", "p.title<>''",
              f"p.contenttypeid IN ({','.join('?'*len(ctids))})"]
     args: list = [area, *ctids]
-    if signgu:
-        where.insert(1, "p.ldongSignguCd=?")
-        args.insert(1, signgu[len(area):] if signgu.startswith(area) else signgu)
+    if signgus:
+        codes = [_sgu_code(area, s) for s in signgus if s]
+        if codes:
+            where.insert(1, f"p.ldongSignguCd IN ({','.join('?'*len(codes))})")
+            for i, c in enumerate(codes):
+                args.insert(1 + i, c)
     if lcls2_in:
         where.append("p.lclsSystm2=?"); args.append(lcls2_in)
     if lcls2_not:
@@ -112,26 +121,41 @@ def _congestion(con: sqlite3.Connection, cands: list[dict], days: list[str]) -> 
     return m
 
 
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """두 좌표 간 거리(km)."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+# 거리 가중치: 점수 = 혼잡도(0~100) + DIST_W × 직전장소로부터 거리(km).
+# 예) 5km 떨어지면 혼잡도 +15점과 동급 → 덜 붐비면서도 가까운 곳을 우선.
+DIST_W = 3.0
+
+
 def _mk_stop(c: dict, seq: int, time: str, label: str, kind: str, cong: float) -> dict:
     return {"seq": seq, "contentId": c["contentid"], "name": c["title"], "arrive": time,
             "label": label, "kind": kind, "lat": float(c["mapy"]), "lon": float(c["mapx"]),
             "image": c["firstimage"] or None, "congestion": round(cong, 1)}
 
 
-def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: list[str],
+def build_itinerary(con: sqlite3.Connection, area: str, signgus: list[str], genres: list[str],
                     start: str, end: str, food_cat: str = "") -> dict | None:
     act_ct, want_food = _resolve_cts(genres)
     days = _dates(start, end)
-    act_pool = _candidates(con, area, signgu, act_ct)
+    act_pool = _candidates(con, area, signgus, act_ct)
     # 식사 풀: 음식 종류 선택 시 해당 카테고리(한식/중식/일식/양식/분식)로 필터
     spec = FOOD_CATS.get(food_cat)
     if spec:
-        meal_pool = _candidates(con, area, signgu, FOOD_CT,
+        meal_pool = _candidates(con, area, signgus, FOOD_CT,
                                 lcls2_in=spec.get("l2"), lcls3_in=spec.get("l3"))
     else:
-        meal_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
-    cafe_pool = _candidates(con, area, signgu, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)
-    indoor_pool = _candidates(con, area, signgu, INDOOR_CT)                     # 문화시설(악천후 실내 대안)
+        meal_pool = _candidates(con, area, signgus, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
+    cafe_pool = _candidates(con, area, signgus, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)
+    indoor_pool = _candidates(con, area, signgus, INDOOR_CT)                     # 문화시설(악천후 실내 대안)
     if not act_pool and not meal_pool and not cafe_pool:
         return None
     cong = _congestion(con, act_pool + meal_pool + cafe_pool + indoor_pool, days)
@@ -149,13 +173,28 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
 
     used: set[str] = set()
 
-    def pick(pools: list[list[dict]], day: str) -> dict | None:
-        """우선순위 풀 순서대로 사용 가능한 후보 중 덜 붐비는 곳."""
+    def _xy(c: dict) -> tuple[float, float] | None:
+        try:
+            return float(c["mapy"]), float(c["mapx"])
+        except (TypeError, ValueError):
+            return None
+
+    def pick(pools: list[list[dict]], day: str, last: tuple[float, float] | None) -> dict | None:
+        """우선순위 풀에서 사용 가능한 후보 중 '덜 붐비면서 직전 장소와 가까운' 곳.
+        점수 = 혼잡도 + DIST_W×거리(km). 첫 장소(last=None)는 혼잡도만으로 선택."""
         for pool in pools:
             cand = [c for c in pool if c["contentid"] not in used]
-            if cand:
-                cand.sort(key=lambda c: cong[(c["contentid"], day)])
-                return cand[0]
+            if not cand:
+                continue
+
+            def score(c: dict) -> float:
+                s = cong[(c["contentid"], day)]
+                xy = _xy(c)
+                if last and xy:
+                    s += DIST_W * _haversine(last[0], last[1], xy[0], xy[1])
+                return s
+
+            return min(cand, key=score)
         return None
 
     day_plans = []
@@ -165,6 +204,7 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
         # 악천후일: 관광 슬롯은 실내(문화시설) 우선, 없으면 원래 관광 풀
         act_pools = ([indoor_pool, act_pool] if indoor and indoor_pool else [act_pool])
         stops, seq = [], 1
+        last: tuple[float, float] | None = None   # 직전 방문 좌표(거리 기반 동선)
         for time, kind, label in slots:
             if kind == "cafe":
                 pools = [cafe_pool, meal_pool]     # 카페 없으면 식당 대체
@@ -172,19 +212,28 @@ def build_itinerary(con: sqlite3.Connection, area: str, signgu: str, genres: lis
                 pools = [meal_pool]
             else:
                 pools = act_pools
-            c = pick(pools, d)
+            c = pick(pools, d, last)
             if not c:
                 continue
             used.add(c["contentid"])
             stops.append(_mk_stop(c, seq, time, label, kind, cong[(c["contentid"], d)]))
+            last = _xy(c) or last
             seq += 1
         act_stops = [s for s in stops if s["kind"] == "act"]
         avg = round(sum(s["congestion"] for s in act_stops) / len(act_stops), 1) if act_stops else 0.0
+        # 동선 총거리(km): 순서대로 인접 정류지 거리 합
+        dist = 0.0
+        for a, b in zip(stops, stops[1:]):
+            dist += _haversine(a["lat"], a["lon"], b["lat"], b["lon"])
         wd = WD[datetime.strptime(d, "%Y-%m-%d").weekday()]
-        day_plans.append({"date": d, "weekday": wd, "avgCongestion": avg, "weather": w, "stops": stops})
+        day_plans.append({"date": d, "weekday": wd, "avgCongestion": avg,
+                          "totalDistanceKm": round(dist, 1), "weather": w, "stops": stops})
 
     rl = _rload()
     area_nm = rl["sido"].get(area, area)
-    sg_nm = next((s["name"] for s in rl["sigungu"].get(area, []) if s["code"] == signgu), None) if signgu else None
+    sg_all = rl["sigungu"].get(area, [])
+    codes = {_sgu_code(area, s) for s in signgus if s}
+    names = [s["name"] for s in sg_all if _sgu_code(area, s["code"]) in codes]
+    sg_nm = ", ".join(names) if names else None
     return {"areaName": area_nm, "signguName": sg_nm, "genre": ", ".join(genres) or "관광지",
             "startDate": days[0], "endDate": days[-1], "days": day_plans}

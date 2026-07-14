@@ -43,7 +43,7 @@ export default function TripPlanner() {
   const [foodCats, setFoodCats] = useState<string[]>([]);
   const [foodCat, setFoodCat] = useState("전체");
   const [area, setArea] = useState("");
-  const [sgu, setSgu] = useState("");
+  const [sgus, setSgus] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>(["관광지"]);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -57,18 +57,20 @@ export default function TripPlanner() {
     api.foodCategories().then(setFoodCats).catch(() => {});
   }, []);
   useEffect(() => {
-    setSgu("");
+    setSgus([]);
     if (area) api.regions(area).then(setSigungu).catch(() => setSigungu([]));
     else setSigungu([]);
   }, [area]);
 
   const toggleGenre = (g: string) =>
     setPicked((p) => p.includes(g) ? (p.length > 1 ? p.filter((x) => x !== g) : p) : [...p, g]);
+  const toggleSgu = (code: string) =>
+    setSgus((p) => p.includes(code) ? p.filter((x) => x !== code) : [...p, code]);
 
   const gen = async () => {
     if (!area || !start) { setErr("지역과 기간(시작일)을 선택하세요"); return; }
     setLoading(true); setErr(null); setPlan(null);
-    try { setPlan(await api.itinerary(area, start, end || start, picked, sgu, picked.includes("식도락") ? foodCat : "")); }
+    try { setPlan(await api.itinerary(area, start, end || start, picked, sgus, picked.includes("식도락") ? foodCat : "")); }
     catch (e) { setErr(String(e)); } finally { setLoading(false); }
   };
 
@@ -76,17 +78,33 @@ export default function TripPlanner() {
 
   return (
     <section className="animate-[fadeIn_.3s_ease]">
-      {/* 지역 */}
+      {/* 지역: 시·도 선택 + 시·군·구 다중 선택 */}
       <div className="flex flex-wrap gap-2">
         <select value={area} onChange={(e) => setArea(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
           <option value="">시·도 선택</option>
           {sido.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
         </select>
-        <select value={sgu} onChange={(e) => setSgu(e.target.value)} disabled={!area} className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50">
-          <option value="">전체 시·군·구</option>
-          {sigungu.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
-        </select>
       </div>
+      {area && sigungu.length > 0 && (
+        <div className="mt-2">
+          <p className="mb-1.5 text-xs text-slate-500">
+            시·군·구 선택 (여러 곳 선택 가능 · 미선택 시 전체)
+            {sgus.length > 0 && <span className="ml-1 text-teal-600">· {sgus.length}곳</span>}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sigungu.map((s) => {
+              const on = sgus.includes(s.code);
+              return (
+                <button key={s.code} onClick={() => toggleSgu(s.code)}
+                  className={`rounded-full px-2.5 py-1 text-xs transition ${on ? "bg-teal-600 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+                  {s.name}{on ? " ✓" : ""}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">여러 곳을 고르면 거리 기반으로 가까운 순서대로 동선을 짜드려요</p>
+        </div>
+      )}
 
       {/* 장르 (다중 선택) */}
       <div className="mt-3">
@@ -143,6 +161,7 @@ export default function TripPlanner() {
                   <b className="text-sm">Day {i + 1} · {d.date}({d.weekday})</b>
                   <span className="flex items-center gap-1">
                     {d.weather && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700">{d.weather.emoji} {d.weather.label}{d.weather.tmp != null ? ` ${d.weather.tmp}°` : ""}</span>}
+                    {d.totalDistanceKm != null && d.totalDistanceKm > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">🧭 {d.totalDistanceKm}km</span>}
                     <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: gradeColor(d.avgCongestion) }}>평균 혼잡 {d.avgCongestion}</span>
                   </span>
                 </div>

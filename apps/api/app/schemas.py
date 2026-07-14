@@ -139,6 +139,7 @@ class ItineraryDay(BaseModel):
     date: str
     weekday: str
     avgCongestion: float
+    totalDistanceKm: float = 0.0     # 그날 동선 총거리(거리 기반 배치)
     weather: WeatherInfo | None = None
     stops: list[ItineraryStop]
 

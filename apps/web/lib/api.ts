@@ -37,7 +37,7 @@ export type ItineraryStop = {
   label: string; kind: "act" | "meal" | "cafe";
   lat: number; lon: number; congestion: number; image?: string | null;
 };
-export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; weather?: WeatherInfo | null; stops: ItineraryStop[] };
+export type ItineraryDay = { date: string; weekday: string; avgCongestion: number; totalDistanceKm?: number; weather?: WeatherInfo | null; stops: ItineraryStop[] };
 export type Itinerary = {
   areaName: string; signguName?: string | null; genre: string;
   startDate: string; endDate: string; days: ItineraryDay[];
@@ -63,6 +63,6 @@ export const api = {
   regions: (areaCd?: string) => get<Region[]>(`/api/regions${areaCd ? `?areaCd=${areaCd}` : ""}`),
   genres: () => get<string[]>(`/api/genres`),
   foodCategories: () => get<string[]>(`/api/food-categories`),
-  itinerary: (areaCd: string, startDate: string, endDate: string, genres: string[], signguCd = "", foodCat = "") =>
-    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genres=${encodeURIComponent(genres.join(","))}${signguCd ? `&signguCd=${signguCd}` : ""}${foodCat && foodCat !== "전체" ? `&foodCat=${encodeURIComponent(foodCat)}` : ""}`),
+  itinerary: (areaCd: string, startDate: string, endDate: string, genres: string[], signguCds: string[] = [], foodCat = "") =>
+    get<Itinerary>(`/api/itinerary?areaCd=${areaCd}&startDate=${startDate}&endDate=${endDate}&genres=${encodeURIComponent(genres.join(","))}${signguCds.length ? `&signguCds=${signguCds.join(",")}` : ""}${foodCat && foodCat !== "전체" ? `&foodCat=${encodeURIComponent(foodCat)}` : ""}`),
 };
