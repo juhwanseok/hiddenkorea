@@ -29,7 +29,10 @@ from .services.reason import llm_reason
 
 app = FastAPI(title="숨은한국 API", version="0.2.0")
 
-origins = [o for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o]
+# 공개 읽기 전용 API(인증·쿠키 없음) → 모든 출처 허용.
+# ALLOWED_ORIGINS를 지정하면 그 목록으로 제한, 미지정(기본값 *)이면 전체 허용.
+_env_origins = os.getenv("ALLOWED_ORIGINS", "*").strip()
+origins = ["*"] if _env_origins in ("", "*") else [o for o in _env_origins.split(",") if o]
 app.add_middleware(
     CORSMiddleware, allow_origins=origins, allow_methods=["GET"], allow_headers=["*"],
 )
