@@ -77,10 +77,13 @@ export default function Home() {
     setQ(""); setHits([]); setSel(null); setCong(null); setDetail(null);
     setAlts(null); setNationAlts(null); setCourse(null); setPicked({}); setErr(null); setMode("place");
   };
-  const doSearch = () => run("search", async () => {
-    setSel(null); setCong(null); setDetail(null); setAlts(null); setCourse(null);
-    setHits(await api.search(q));
-  });
+  const doSearch = () => {
+    if (!q.trim()) { setErr("검색어를 입력하세요 (예: 경복궁, 해운대)"); return; }
+    run("search", async () => {
+      setSel(null); setCong(null); setDetail(null); setAlts(null); setCourse(null);
+      setHits(await api.search(q.trim()));
+    });
+  };
   const pickPlace = (p: PlaceHit) => run("cong", async () => {
     setSel(p); setAlts(null); setNationAlts(null); setCourse(null); setPicked({}); setDetail(null); setFocused(false);
     setCong(await api.congestion(p.contentId, date));
