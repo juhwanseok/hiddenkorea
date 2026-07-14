@@ -41,7 +41,7 @@ export default function TripPlanner() {
   const [sigungu, setSigungu] = useState<Region[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [foodCats, setFoodCats] = useState<string[]>([]);
-  const [foodCat, setFoodCat] = useState("전체");
+  const [foodSel, setFoodSel] = useState<string[]>([]);
   const [area, setArea] = useState("");
   const [sgus, setSgus] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>(["관광지"]);
@@ -66,11 +66,13 @@ export default function TripPlanner() {
     setPicked((p) => p.includes(g) ? (p.length > 1 ? p.filter((x) => x !== g) : p) : [...p, g]);
   const toggleSgu = (code: string) =>
     setSgus((p) => p.includes(code) ? p.filter((x) => x !== code) : [...p, code]);
+  const toggleFood = (f: string) =>
+    setFoodSel((p) => p.includes(f) ? p.filter((x) => x !== f) : [...p, f]);
 
   const gen = async () => {
     if (!area || !start) { setErr("지역과 기간(시작일)을 선택하세요"); return; }
     setLoading(true); setErr(null); setPlan(null);
-    try { setPlan(await api.itinerary(area, start, end || start, picked, sgus, picked.includes("식도락") ? foodCat : "")); }
+    try { setPlan(await api.itinerary(area, start, end || start, picked, sgus, picked.includes("식도락") ? foodSel : [])); }
     catch (e) { setErr(String(e)); } finally { setLoading(false); }
   };
 
@@ -122,17 +124,20 @@ export default function TripPlanner() {
         <p className="mt-1 text-[11px] text-slate-400">여러 개 선택 가능 · 식사·카페는 자동으로 알맞은 시간에 넣어드려요</p>
       </div>
 
-      {/* 음식 종류 (식도락 선택 시) */}
+      {/* 음식 종류 (식도락 선택 시, 여러 개 선택 가능 · 미선택 시 전체) */}
       {picked.includes("식도락") && foodCats.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-xs font-semibold text-amber-700">🍽️ 음식 종류</p>
+          <p className="mb-1.5 text-xs font-semibold text-amber-700">🍽️ 음식 종류 <span className="font-normal text-slate-400">(여러 개 선택 가능 · 미선택 시 전체)</span></p>
           <div className="flex flex-wrap gap-2">
-            {foodCats.map((f) => (
-              <button key={f} onClick={() => setFoodCat(f)}
-                className={`rounded-full px-3 py-1 text-sm transition ${foodCat === f ? "bg-amber-500 text-white" : "border border-slate-300 text-slate-600 hover:bg-amber-50"}`}>
-                {f}
-              </button>
-            ))}
+            {foodCats.filter((f) => f !== "전체").map((f) => {
+              const on = foodSel.includes(f);
+              return (
+                <button key={f} onClick={() => toggleFood(f)}
+                  className={`rounded-full px-3 py-1 text-sm transition ${on ? "bg-amber-500 text-white" : "border border-slate-300 text-slate-600 hover:bg-amber-50"}`}>
+                  {f}{on ? " ✓" : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

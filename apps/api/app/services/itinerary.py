@@ -132,8 +132,8 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 # 거리 가중치: 점수 = 혼잡도(0~100) + DIST_W × 직전장소로부터 거리(km).
-# 예) 5km 떨어지면 혼잡도 +15점과 동급 → 덜 붐비면서도 가까운 곳을 우선.
-DIST_W = 3.0
+# 예) 5km 떨어지면 혼잡도 +25점과 동급 → 동선(가까움)을 더 강하게 우선.
+DIST_W = 5.0
 
 
 def _mk_stop(c: dict, seq: int, time: str, label: str, kind: str, cong: float) -> dict:
@@ -143,15 +143,19 @@ def _mk_stop(c: dict, seq: int, time: str, label: str, kind: str, cong: float) -
 
 
 def build_itinerary(con: sqlite3.Connection, area: str, signgus: list[str], genres: list[str],
-                    start: str, end: str, food_cat: str = "") -> dict | None:
+                    start: str, end: str, food_cats: list[str] | None = None) -> dict | None:
     act_ct, want_food = _resolve_cts(genres)
     days = _dates(start, end)
     act_pool = _candidates(con, area, signgus, act_ct)
-    # 식사 풀: 음식 종류 선택 시 해당 카테고리(한식/중식/일식/양식/분식)로 필터
-    spec = FOOD_CATS.get(food_cat)
-    if spec:
-        meal_pool = _candidates(con, area, signgus, FOOD_CT,
-                                lcls2_in=spec.get("l2"), lcls3_in=spec.get("l3"))
+    # 식사 풀: 음식 종류 다중 선택 시 각 카테고리(한식/중식/일식/양식/분식) 후보를 합집합으로
+    specs = [FOOD_CATS[c] for c in (food_cats or []) if c in FOOD_CATS]
+    if specs:
+        meal_pool, seen = [], set()
+        for spec in specs:
+            for c in _candidates(con, area, signgus, FOOD_CT,
+                                 lcls2_in=spec.get("l2"), lcls3_in=spec.get("l3")):
+                if c["contentid"] not in seen:
+                    seen.add(c["contentid"]); meal_pool.append(c)
     else:
         meal_pool = _candidates(con, area, signgus, FOOD_CT, lcls2_not=CAFE_LCLS2)   # 식사(카페 제외)
     cafe_pool = _candidates(con, area, signgus, FOOD_CT, lcls2_in=CAFE_LCLS2)    # 카페·찻집(FD05)

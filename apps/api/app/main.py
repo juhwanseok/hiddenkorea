@@ -74,13 +74,14 @@ def itinerary(
     endDate: str = Query(..., description="YYYY-MM-DD"),
     genres: str = Query("관광지", description="장르 콤마구분 다중선택"),
     signguCds: str = Query("", description="시군구 코드 콤마구분 다중선택(선택)"),
-    foodCat: str = Query("", description="음식 종류(한식/중식/일식/양식/분식·간식). 식도락 선택 시"),
+    foodCats: str = Query("", description="음식 종류 콤마구분 다중선택(한식/중식/일식/양식/분식·간식). 식도락 선택 시"),
 ) -> ItineraryResponse:
     glist = [g.strip() for g in genres.split(",") if g.strip()] or ["관광지"]
     sglist = [s.strip() for s in signguCds.split(",") if s.strip()]
+    fclist = [f.strip() for f in foodCats.split(",") if f.strip()]
     con = connect()
     try:
-        result = itin.build_itinerary(con, areaCd, sglist, glist, startDate, endDate, food_cat=foodCat)
+        result = itin.build_itinerary(con, areaCd, sglist, glist, startDate, endDate, food_cats=fclist)
         if not result:
             raise HTTPException(404, "해당 지역·장르에 추천할 장소가 없습니다")
         return ItineraryResponse(**result)
