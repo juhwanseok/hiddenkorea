@@ -36,7 +36,7 @@ function RangeCalendar({ start, end, onPick }: { start: string; end: string; onP
   );
 }
 
-export default function TripPlanner() {
+export default function TripPlanner({ onPick }: { onPick?: (contentId: string, title: string) => void }) {
   const [sido, setSido] = useState<Region[]>([]);
   const [sigungu, setSigungu] = useState<Region[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
@@ -177,14 +177,18 @@ export default function TripPlanner() {
                     const icon = s.kind === "meal" ? (s.label === "점심" ? "🍚" : "🍽️") : s.kind === "cafe" ? "☕" : "📍";
                     const isFood = s.kind !== "act";
                     return (
-                      <li key={s.contentId} className="flex items-center gap-2">
-                        <span className="w-11 shrink-0 text-right text-xs font-semibold text-slate-500">{s.arrive}</span>
-                        {s.image ? <img src={s.image} alt="" className="h-10 w-10 shrink-0 rounded object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-slate-100 text-base">{icon}</div>}
-                        <span className="text-sm">
-                          <span className={`mr-1 rounded px-1 py-0.5 text-[10px] ${isFood ? "bg-amber-100 text-amber-700" : "bg-teal-100 text-teal-700"}`}>{icon} {s.label}</span>
-                          <b>{s.name}</b>
-                          {!isFood && <span className="ml-1 rounded px-1 text-[10px] text-white" style={{ background: gradeColor(s.congestion) }}>혼잡 {s.congestion}</span>}
-                        </span>
+                      <li key={s.contentId}>
+                        <button onClick={() => onPick?.(s.contentId, s.name)}
+                          className="flex w-full items-center gap-2 rounded-lg p-1 text-left transition hover:bg-teal-50 active:scale-[.99]">
+                          <span className="w-11 shrink-0 text-right text-xs font-semibold text-slate-500">{s.arrive}</span>
+                          {s.image ? <img src={s.image} alt="" className="h-10 w-10 shrink-0 rounded object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-slate-100 text-base">{icon}</div>}
+                          <span className="text-sm">
+                            <span className={`mr-1 rounded px-1 py-0.5 text-[10px] ${isFood ? "bg-amber-100 text-amber-700" : "bg-teal-100 text-teal-700"}`}>{icon} {s.label}</span>
+                            <b>{s.name}</b>
+                            {!isFood && <span className="ml-1 rounded px-1 text-[10px] text-white" style={{ background: gradeColor(s.congestion) }}>혼잡 {s.congestion}</span>}
+                            <span className="ml-1 text-[10px] text-slate-400">›</span>
+                          </span>
+                        </button>
                       </li>
                     );
                   })}

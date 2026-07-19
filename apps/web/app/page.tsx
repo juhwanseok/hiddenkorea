@@ -119,7 +119,7 @@ export default function Home() {
         ))}
       </div>
 
-      {mode === "trip" && <TripPlanner />}
+      {mode === "trip" && <TripPlanner onPick={(cid, title) => { setMode("place"); pickById(cid, title); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
 
       {mode === "place" && (<>
       <div className="flex gap-2">
